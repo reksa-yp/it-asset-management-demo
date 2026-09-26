@@ -1,0 +1,1396 @@
+/*
+ * IT System — DEMO statis (tanpa PHP/MySQL), untuk GitHub Pages.
+ * Semua data disimpan di browser pengunjung (localStorage). Tidak ada data
+ * yang dikirim ke server mana pun.
+ */
+(function () {
+  'use strict';
+
+  // ------------------------------------------------------------------
+  // Penyimpanan
+  // ------------------------------------------------------------------
+  const DB_KEY = 'itsys_demo_db_v1';
+  const SESSION_KEY = 'itsys_demo_session_v1';
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* mode privat: data hanya di memori */ } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { /* abaikan */ } },
+  };
+
+  let db;
+  function loadDb() {
+    const raw = store.get(DB_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.version === window.DEMO_SEED.version) return parsed;
+      } catch (e) { /* data rusak -> pakai data awal */ }
+    }
+    return clone(window.DEMO_SEED);
+  }
+  db = loadDb();
+  const save = () => store.set(DB_KEY, JSON.stringify(db));
+  function resetDemo() {
+    store.del(DB_KEY);
+    db = clone(window.DEMO_SEED);
+    save();
+  }
+
+  let sessionUserId = parseInt(store.get(SESSION_KEY) || '0', 10) || null;
+  const currentUser = () => db.users.find((u) => u.id === sessionUserId) || null;
+  const isAdmin = () => (currentUser() || {}).role === 'admin';
+
+  // ------------------------------------------------------------------
+  // Helper umum
+  // ------------------------------------------------------------------
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const nextId = (arr) => arr.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
+  const DASH = '-';
+  const COPYRIGHT = '© Copyright by ASKER';
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const pad = (n) => String(n).padStart(2, '0');
+  function fmtDate(iso) {
+    if (!iso) return DASH;
+    const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso);
+    return `${pad(d.getDate())} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  function fmtDateTime(iso) {
+    if (!iso) return DASH;
+    const d = new Date(iso);
+    return `${fmtDate(iso)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const localDay = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
+  const ICONS = {
+    dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    laptop: '<path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/>',
+    tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    ticket: '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>',
+    monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+    settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    printer: '<path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+    'file-text': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    pencil: '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>',
+    package: '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="m7.5 4.27 9 5.15"/>',
+    plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+    minus: '<path d="M5 12h14"/>',
+    trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+    pc: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 6h6"/><path d="M9 10h6"/><path d="M15 17h.01"/>',
+    mouse: '<rect x="5" y="2" width="14" height="20" rx="7"/><path d="M12 6v4"/>',
+    tablet: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M12 18h.01"/>',
+  };
+  function icon(name, cls = 'w-4 h-4') {
+    return `<svg class="shrink-0 ${cls}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.pc}</svg>`;
+  }
+  function categoryIcon(cat, cls = 'w-6 h-6') {
+    const c = String(cat || '').toLowerCase();
+    let n = 'pc';
+    if (c.includes('laptop')) n = 'laptop';
+    else if (c.includes('printer')) n = 'printer';
+    else if (c.includes('monitor')) n = 'monitor';
+    else if (c.includes('tablet')) n = 'tablet';
+    else if (c.includes('aksesoris')) n = 'mouse';
+    return icon(n, cls);
+  }
+
+  const ASSET_STATUS = { 'Digunakan': 'Digunakan', 'Stok': 'Stok', 'Tidak Digunakan': 'Tidak Digunakan' };
+  const ASSET_STATUS_BADGE = { 'Digunakan': 'bg-green-100 text-green-700', 'Stok': 'bg-slate-100 text-slate-600', 'Tidak Digunakan': 'bg-red-100 text-red-600' };
+  const TICKET_BADGE = { 'Menunggu': 'bg-amber-100 text-amber-700', 'Proses': 'bg-blue-100 text-blue-700', 'Selesai': 'bg-green-100 text-green-700', 'Dibatalkan': 'bg-slate-200 text-slate-600' };
+
+  // ------------------------------------------------------------------
+  // Query data
+  // ------------------------------------------------------------------
+  const userById = (id) => db.users.find((u) => u.id === id);
+  const assetById = (id) => db.assets.find((a) => a.id === id);
+  const ownersOf = (assetId) => db.assetOwners.filter((o) => o.asset_id === assetId).map((o) => userById(o.user_id)).filter(Boolean);
+  const assetsOfUser = (userId) => db.assetOwners.filter((o) => o.user_id === userId).map((o) => assetById(o.asset_id)).filter(Boolean);
+  const isCancelled = (t) => db.cancellations.some((c) => c.ticket_id === t.id);
+  const ticketStatus = (t) => (isCancelled(t) ? 'Dibatalkan' : t.status);
+  const workOf = (ticketId) => db.workDetails.find((w) => w.ticket_id === ticketId) || null;
+  const prefix = () => db.settings.asset_prefix || 'AST';
+  const appName = () => db.settings.app_name || 'IT Asset Management';
+
+  function deptAbbr(dept) {
+    dept = String(dept || '').trim();
+    if (!dept) return 'STOK';
+    const words = dept.split(/[\s/\-_]+/).filter(Boolean);
+    if (words.length <= 1) { const w = words[0] || dept; return w.slice(0, w.length <= 5 ? w.length : 3).toUpperCase(); }
+    return words.map((w) => w[0]).join('').slice(0, 4).toUpperCase();
+  }
+  function nextAssetNumber(category, dept, location, excludeId) {
+    const p = prefix();
+    const exists = (n) => db.assets.some((a) => a.asset_number === n && a.id !== excludeId);
+    if (/tablet/i.test(category)) {
+      const line = String(location || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      if (!line) return null;
+      const base = `${p}/${deptAbbr(dept)}/${line}/`;
+      let max = 0;
+      db.assets.forEach((a) => { if (a.id !== excludeId && a.asset_number.startsWith(base)) { const m = a.asset_number.slice(base.length).match(/^(\d+)$/); if (m) max = Math.max(max, +m[1]); } });
+      let n = max + 1; while (exists(base + String(n).padStart(3, '0'))) n++;
+      return base + String(n).padStart(3, '0');
+    }
+    const cat = db.categories.find((c) => c.name === category);
+    const abbr = cat ? cat.abbr : 'AST';
+    let max = 0;
+    const re = new RegExp('^' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/[^/]+/' + abbr + '/(\\d+)$', 'i');
+    db.assets.forEach((a) => { const m = a.asset_number.match(re); if (m) max = Math.max(max, +m[1]); });
+    let n = max + 1;
+    let cand;
+    do { cand = `${p}/${deptAbbr(dept)}/${abbr}/${String(n).padStart(3, '0')}`; n++; } while (exists(cand));
+    return cand;
+  }
+
+  // Semua jenis aset yang berstatus "Stok" otomatis dihitung sebagai stok perangkat.
+  const isDeviceStockCategory = () => true;
+  function deviceStock() {
+    const cats = db.categories.filter((c) => isDeviceStockCategory(c.name)).sort((a, b) => a.sort_order - b.sort_order);
+    const rows = cats.map((c) => {
+      const all = db.assets.filter((a) => a.category === c.name);
+      return { name: c.name, stok: all.filter((a) => a.status === 'Stok').length, used: all.filter((a) => a.status === 'Digunakan').length, unused: all.filter((a) => a.status === 'Tidak Digunakan').length };
+    });
+    const items = db.assets.filter((a) => isDeviceStockCategory(a.category) && a.status === 'Stok' && (!stockUi.devCat || a.category === stockUi.devCat)).sort((a, b) => a.category.localeCompare(b.category) || a.asset_number.localeCompare(b.asset_number));
+    const total = rows.reduce((n, r) => n + r.stok, 0);
+    return { rows, items, total };
+  }
+
+  function stockOf(catId) {
+    return db.stockTransactions.filter((t) => t.category_id === catId).reduce((s, t) => s + (t.type === 'in' ? t.qty : -t.qty), 0);
+  }
+
+  function upgradeAssets() {
+    const kw = 'harus upgrade';
+    const rows = [];
+    const seen = new Set();
+    [...db.tickets].sort((a, b) => b.created_at.localeCompare(a.created_at)).forEach((t) => {
+      if (isCancelled(t) || !t.asset_id) return;
+      const w = workOf(t.id) || {};
+      const hit = [t.problem_detail, w.work_detail, w.asset_check].some((x) => String(x || '').toLowerCase().includes(kw));
+      if (!hit || seen.has(t.asset_id)) return;
+      if (db.upgradeAck.some((k) => k.asset_id === t.asset_id && k.ticket_id === t.id)) return;
+      seen.add(t.asset_id);
+      rows.push({ asset: assetById(t.asset_id), ticket: t, text: w.asset_check || w.work_detail || t.problem_detail });
+    });
+    return rows.filter((r) => r.asset);
+  }
+
+  // ------------------------------------------------------------------
+  // UI umum: toast, modal
+  // ------------------------------------------------------------------
+  function toast(msg, ok = true) {
+    const el = document.createElement('div');
+    el.className = `fixed bottom-4 right-4 z-[70] max-w-sm rounded-lg px-4 py-3 text-sm shadow-lg ${ok ? 'bg-slate-800 text-white' : 'bg-red-600 text-white'}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; }, 2600);
+    setTimeout(() => el.remove(), 3000);
+  }
+
+  function openModal(title, bodyHtml, { wide = false, onMount } = {}) {
+    closeModal();
+    const wrap = document.createElement('div');
+    wrap.id = 'modal';
+    wrap.className = 'fixed inset-0 z-[60] flex items-start sm:items-center justify-center bg-black/40 p-3 overflow-y-auto';
+    wrap.innerHTML = `
+      <div class="bg-white rounded-xl shadow-xl w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} my-6">
+        <div class="flex items-center justify-between px-5 py-4 border-b">
+          <h3 class="font-semibold text-slate-700">${esc(title)}</h3>
+          <button type="button" data-close class="text-slate-400 hover:text-slate-600">${icon('x', 'w-5 h-5')}</button>
+        </div>
+        <div class="p-5">${bodyHtml}</div>
+      </div>`;
+    wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-close]')) closeModal(); });
+    document.body.appendChild(wrap);
+    if (onMount) onMount(wrap);
+    const first = wrap.querySelector('input:not([type=hidden]):not([readonly]), select, textarea');
+    if (first) setTimeout(() => first.focus(), 30);
+  }
+  function closeModal() { const m = $('#modal'); if (m) m.remove(); }
+
+  // Dialog konfirmasi di dalam halaman (pengganti confirm()/prompt() bawaan browser).
+  function dialog(message, { okLabel = 'Ya, lanjutkan', input = null, danger = false } = {}) {
+    return new Promise((resolve) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4';
+      wrap.innerHTML = `<div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" role="dialog" aria-modal="true">
+        <p class="text-sm text-slate-700">${esc(message)}</p>
+        ${input !== null ? `<input id="dlgInput" placeholder="${esc(input)}" class="mt-3 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">` : ''}
+        <div class="flex justify-end gap-2 mt-5">
+          <button type="button" data-dlg="0" class="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-4 py-2 text-sm font-medium">Batal</button>
+          <button type="button" data-dlg="1" class="${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg px-4 py-2 text-sm font-medium">${esc(okLabel)}</button>
+        </div></div>`;
+      const done = (ok) => {
+        const val = input !== null ? (wrap.querySelector('#dlgInput').value || '') : true;
+        wrap.remove(); document.removeEventListener('keydown', onKey, true);
+        resolve(ok ? val : (input !== null ? null : false));
+      };
+      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } if (e.key === 'Enter') { e.preventDefault(); done(true); } };
+      wrap.addEventListener('click', (e) => { const b = e.target.closest('[data-dlg]'); if (b) done(b.dataset.dlg === '1'); else if (e.target === wrap) done(false); });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(wrap);
+      setTimeout(() => (wrap.querySelector('#dlgInput') || wrap.querySelector('[data-dlg="1"]')).focus(), 20);
+    });
+  }
+  const ask = (msg, okLabel) => dialog(msg, { okLabel: okLabel || 'Ya, lanjutkan', danger: /hapus|reset|kembalikan/i.test(msg) });
+  const askText = (msg, placeholder) => dialog(msg, { okLabel: 'Batalkan Tiket', input: placeholder, danger: true });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  const inputCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
+  const btnPrimary = 'inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium';
+  const btnGhost = 'inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-4 py-2 text-sm font-medium';
+  const field = (label, inner, cls = '') => `<div class="${cls}"><label class="block text-sm font-medium text-slate-600 mb-1">${label}</label>${inner}</div>`;
+  const options = (list, selected, withEmpty) => (withEmpty ? `<option value="">${esc(withEmpty)}</option>` : '') + list.map((o) => {
+    const v = typeof o === 'object' ? o.value : o;
+    const l = typeof o === 'object' ? o.label : o;
+    return `<option value="${esc(v)}" ${String(v) === String(selected) ? 'selected' : ''}>${esc(l)}</option>`;
+  }).join('');
+  const formData = (form) => Object.fromEntries(new FormData(form).entries());
+
+  function downloadCsv(filename, rows) {
+    const csv = rows.map((r) => r.map((c) => `"${String(c == null ? '' : c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 100);
+  }
+
+  // ------------------------------------------------------------------
+  // Routing
+  // ------------------------------------------------------------------
+  const ADMIN_NAV = [
+    ['dashboard', 'dashboard', 'Dashboard'],
+    ['assets', 'laptop', 'Penambahan Aset IT'],
+    ['categories', 'tag', 'Kategori Aset'],
+    ['users', 'users', 'Management User'],
+    ['tickets', 'ticket', 'Ticketing IT'],
+    ['stock', 'package', 'Stok Barang'],
+    ['my-asset', 'monitor', 'Aset Saya'],
+    ['settings', 'settings', 'Pengaturan Sistem'],
+  ];
+  const USER_NAV = [
+    ['my-asset', 'monitor', 'Aset Saya'],
+    ['tickets', 'ticket', 'Ticketing IT'],
+    ['queue', 'clock', 'Antrian Ticket'],
+  ];
+  const PAGES = {};
+  // Mode artifact (dibuka di claude.ai): tanpa hash URL, cetak & unduh file dimatikan.
+  const ARTIFACT = !!window.DEMO_ARTIFACT;
+  const hashRoute = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || '');
+  let currentRoute = ARTIFACT ? '' : hashRoute();
+  const route = () => currentRoute;
+  function go(r) {
+    closeModal();
+    if (!ARTIFACT && hashRoute() !== r) { location.hash = '#/' + r; return; } // hashchange -> render()
+    currentRoute = r;
+    render();
+    const main = document.querySelector('main'); if (main) main.scrollTop = 0;
+  }
+  // Semua link menu (href="#/...") ditangani di sini
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#/"]');
+    if (!a) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(2));
+  });
+  const uiState = { sidebarCollapsed: false };
+
+  function render() {
+    const app = $('#app');
+    const u = currentUser();
+    document.title = appName() + ' — Demo';
+    if (!u) { app.innerHTML = renderLogin(); bindLogin(); return; }
+    const nav = isAdmin() ? ADMIN_NAV : USER_NAV;
+    let r = route();
+    if (!nav.some((n) => n[0] === r)) { r = nav[0][0]; currentRoute = r; if (!ARTIFACT) history.replaceState(null, '', '#/' + r); }
+    const page = PAGES[r];
+    const title = (nav.find((n) => n[0] === r) || [])[2] || '';
+    app.innerHTML = renderShell(nav, r, title, page.render());
+    bindShell();
+    if (page.bind) page.bind();
+  }
+  window.addEventListener('hashchange', () => { if (ARTIFACT) return; currentRoute = hashRoute(); closeModal(); render(); });
+
+  function logoHtml(size, textCls) {
+    if (db.settings.logo) return `<img src="${esc(db.settings.logo)}" class="${size} object-contain bg-white p-0.5" alt="">`;
+    const initials = appName().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || 'IT';
+    return `<div class="${size} ${textCls} flex items-center justify-center">${esc(initials)}</div>`;
+  }
+
+  function renderShell(nav, current, title, content) {
+    const u = currentUser();
+    const items = nav.map(([r, ic, label]) => {
+      const active = r === current;
+      return `<a href="#/${r}" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-700/60 hover:text-white'}">
+        <span class="w-5 flex justify-center">${icon(ic, 'w-5 h-5')}</span><span class="sidebar-label flex-1">${esc(label)}</span>${r === 'stock' ? '<span class="sidebar-label text-[10px] font-bold uppercase bg-amber-400 text-amber-950 rounded px-1.5 py-0.5">Baru</span>' : ''}</a>`;
+    }).join('');
+    return `
+<div class="flex h-screen overflow-hidden">
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden"></div>
+  <aside id="sidebar" class="fixed lg:static z-40 h-full w-64 bg-slate-800 text-white flex flex-col transition-all duration-200 -translate-x-full lg:translate-x-0 ${uiState.sidebarCollapsed ? 'sidebar-collapsed' : ''}">
+    <div class="flex items-center justify-between px-4 h-16 border-b border-slate-700 shrink-0">
+      <div class="flex items-center gap-2 overflow-hidden">
+        ${logoHtml('w-8 h-8 rounded-lg', 'bg-brand-500 text-white font-bold text-sm')}
+        <span class="font-semibold sidebar-label text-sm leading-tight line-clamp-2">${esc(appName())}</span>
+      </div>
+      <button id="btnCloseSidebar" class="lg:hidden text-slate-300 hover:text-white">${icon('x', 'w-5 h-5')}</button>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      ${items}
+      <div class="border-t border-slate-700 my-3"></div>
+      <a href="#" id="btnLogout" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-red-300 hover:bg-red-500/20 hover:text-red-200">
+        <span class="w-5 flex justify-center">${icon('logout', 'w-5 h-5')}</span><span class="sidebar-label">Logout</span></a>
+    </nav>
+    <div class="px-4 py-3 border-t border-slate-700 text-xs text-slate-400 sidebar-label">
+      Masuk sebagai<br><span class="text-white font-medium">${esc(u.full_name)}</span> (${esc(u.role)})
+    </div>
+  </aside>
+  <div class="flex-1 flex flex-col min-w-0">
+    <div class="bg-amber-400 text-amber-950 text-xs sm:text-sm px-4 py-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center">
+      <span><b>MODE DEMO</b> — data contoh, perubahan hanya tersimpan di browser Anda.</span>
+      <button id="btnResetDemo" class="underline font-semibold">Reset data demo</button>
+    </div>
+    <header class="h-16 bg-white border-b flex items-center justify-between px-4 shrink-0">
+      <div class="flex items-center gap-3 min-w-0">
+        <button id="btnHamburger" class="p-2 rounded-lg hover:bg-slate-100 text-slate-600" aria-label="Menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg>
+        </button>
+        <h1 class="font-semibold text-lg text-slate-700 truncate">${esc(title)}</h1>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <button id="btnSwitchRole" class="hidden sm:inline-flex items-center gap-1 text-xs font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-full px-3 py-1">
+          ${icon('refresh', 'w-3.5 h-3.5')} Coba sebagai ${isAdmin() ? 'User' : 'Admin'}
+        </button>
+        <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-semibold">${esc(u.full_name[0].toUpperCase())}</div>
+        <span class="hidden md:inline text-slate-600">${esc(u.full_name)}</span>
+      </div>
+    </header>
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6">${content}
+      <footer class="mt-10 pt-4 border-t border-slate-200 text-center text-xs text-slate-400">${esc(COPYRIGHT)}</footer>
+    </main>
+  </div>
+</div>`;
+  }
+
+  function login(userId) {
+    sessionUserId = userId;
+    store.set(SESSION_KEY, String(userId));
+    go(userById(userId).role === 'admin' ? 'dashboard' : 'my-asset');
+  }
+  function logout() {
+    sessionUserId = null;
+    store.del(SESSION_KEY);
+    currentRoute = '';
+    if (!ARTIFACT) history.replaceState(null, '', location.pathname);
+    render();
+  }
+
+  function bindShell() {
+    const sb = $('#sidebar');
+    const ov = $('#sidebarOverlay');
+    const closeMobile = () => { sb.classList.add('-translate-x-full'); ov.classList.add('hidden'); };
+    $('#btnHamburger').onclick = () => {
+      if (window.innerWidth < 1024) { sb.classList.remove('-translate-x-full'); ov.classList.remove('hidden'); }
+      else { uiState.sidebarCollapsed = !uiState.sidebarCollapsed; sb.classList.toggle('sidebar-collapsed', uiState.sidebarCollapsed); }
+    };
+    $('#btnCloseSidebar').onclick = closeMobile;
+    ov.onclick = closeMobile;
+    $$('#sidebar nav a[href^="#/"]').forEach((a) => a.addEventListener('click', closeMobile));
+    $('#btnLogout').onclick = async (e) => { e.preventDefault(); if (await ask('Yakin ingin keluar?', 'Logout')) logout(); };
+    $('#btnResetDemo').onclick = async () => {
+      if (!(await ask('Kembalikan semua data demo ke kondisi awal? Perubahan Anda akan hilang.'))) return;
+      const uid = sessionUserId;
+      resetDemo();
+      sessionUserId = userById(uid) ? uid : null;
+      render();
+      toast('Data demo sudah dikembalikan ke kondisi awal.');
+    };
+    $('#btnSwitchRole').onclick = () => login(isAdmin() ? db.users.find((u) => u.username === 'user').id : db.users.find((u) => u.username === 'admin').id);
+  }
+
+  // ------------------------------------------------------------------
+  // Login
+  // ------------------------------------------------------------------
+  function renderLogin() {
+    return `
+<div class="min-h-screen flex flex-col gap-6 items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4 py-10">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8">
+    <div class="text-center mb-6">
+      <div class="flex justify-center">${logoHtml('w-14 h-14 rounded-2xl', 'bg-blue-600 text-white font-bold text-xl')}</div>
+      <h1 class="mt-3 text-xl font-bold text-slate-800">${esc(appName())}</h1>
+      <p class="text-sm text-slate-500">Inventaris Aset IT &amp; Ticketing</p>
+      <span class="inline-block mt-2 text-[11px] font-semibold tracking-wide bg-amber-100 text-amber-800 rounded-full px-2.5 py-0.5">VERSI DEMO</span>
+    </div>
+    <div class="space-y-2 mb-5">
+      <button data-quick="admin" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 text-left transition">
+        <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">${icon('dashboard', 'w-5 h-5')}</span>
+        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai Admin</span><span class="block text-xs text-slate-500">Dashboard, aset, user, ticketing, stok</span></span>
+      </button>
+      <button data-quick="user" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 text-left transition">
+        <span class="w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center">${icon('monitor', 'w-5 h-5')}</span>
+        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai User</span><span class="block text-xs text-slate-500">Aset saya, buat tiket, antrian</span></span>
+      </button>
+    </div>
+    <div class="flex items-center gap-3 text-xs text-slate-400 mb-4"><div class="flex-1 border-t"></div>atau login manual<div class="flex-1 border-t"></div></div>
+    <div id="loginError" class="hidden mb-4 text-sm bg-red-50 text-red-600 border border-red-200 rounded-lg px-3 py-2"></div>
+    <form id="loginForm" class="space-y-4">
+      ${field('Username', `<input name="username" required autocomplete="off" class="${inputCls}">`)}
+      ${field('Password', `<input name="password" type="password" required class="${inputCls}">`)}
+      <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg py-2.5 text-sm transition">Login</button>
+    </form>
+    <p class="mt-4 text-xs text-slate-400 text-center">Akun demo: <b>admin</b> / <b>admin123</b> · <b>user</b> / <b>user123</b></p>
+  </div>
+  <p class="text-xs text-slate-400 text-center">${esc(COPYRIGHT)}</p>
+</div>`;
+  }
+  function bindLogin() {
+    $$('[data-quick]').forEach((b) => (b.onclick = () => login(db.users.find((u) => u.username === b.dataset.quick).id)));
+    $('#loginForm').onsubmit = (e) => {
+      e.preventDefault();
+      const { username, password } = formData(e.target);
+      const u = db.users.find((x) => x.username === username.trim() && x.is_active);
+      const ok = u && (password === (u.username === 'admin' ? 'admin123' : u.username === 'user' ? 'user123' : 'demo123') || password === u.demo_password);
+      if (!ok) { const el = $('#loginError'); el.textContent = 'Username atau password salah.'; el.classList.remove('hidden'); return; }
+      login(u.id);
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // Dashboard (admin)
+  // ------------------------------------------------------------------
+  PAGES.dashboard = {
+    render() {
+      const total = db.assets.length;
+      const queue = db.tickets.filter((t) => !isCancelled(t) && (t.status === 'Menunggu' || t.status === 'Proses')).length;
+      const fixedToday = db.tickets.filter((t) => t.status === 'Selesai' && t.resolved_at && localDay(t.resolved_at) === todayStr()).length;
+      const low = db.stockCategories.map((c) => ({ ...c, stock: stockOf(c.id) })).filter((c) => c.stock <= c.min_stock);
+      const colors = ['#3b6ff2', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+      const breakdown = db.categories.map((c, i) => ({ name: c.name, total: db.assets.filter((a) => a.category === c.name).length, color: colors[i % colors.length] })).filter((b) => b.total);
+      let acc = 0;
+      const grad = breakdown.map((b) => { const s = acc; acc += (b.total / (total || 1)) * 100; return `${b.color} ${s}% ${acc}%`; }).join(', ');
+      const ups = upgradeAssets();
+      const recent = [...db.tickets].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 6);
+
+      return `
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+  <button type="button" id="btnBreakdown" class="text-left bg-white rounded-xl shadow-sm p-5 border-l-4 border-blue-500 hover:bg-slate-50 transition">
+    <div class="flex items-center justify-between"><p class="text-sm text-slate-500">Total Aset</p><span class="text-xs text-slate-400">klik untuk rincian ▾</span></div>
+    <p class="text-3xl font-bold text-slate-800 mt-1">${total}</p>
+  </button>
+  <a href="#/tickets" class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-amber-500 hover:bg-slate-50">
+    <p class="text-sm text-slate-500">Antrian Tiket</p><p class="text-3xl font-bold text-slate-800 mt-1">${queue}</p>
+  </a>
+  <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-green-500">
+    <p class="text-sm text-slate-500">Perbaikan Selesai Hari Ini</p><p class="text-3xl font-bold text-slate-800 mt-1">${fixedToday}</p>
+  </div>
+</div>
+
+<div id="breakdownPanel" class="hidden bg-white rounded-xl shadow-sm p-5 mb-4">
+  <h3 class="font-semibold text-slate-700 mb-3">Rincian per Jenis Aset</h3>
+  <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+    <div class="relative shrink-0" style="width:170px;height:170px">
+      <div class="rounded-full w-full h-full" style="background:conic-gradient(${grad})"></div>
+      <div class="absolute inset-0 m-auto rounded-full bg-white flex flex-col items-center justify-center" style="width:100px;height:100px">
+        <span class="text-2xl font-bold text-slate-800">${total}</span><span class="text-[11px] text-slate-400">Total Aset</span>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
+      ${breakdown.map((b) => `<div class="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+        <span class="w-3 h-3 rounded-full shrink-0" style="background:${b.color}"></span>
+        <span class="text-sm text-slate-600 truncate flex-1">${esc(b.name)}</span>
+        <span class="text-sm font-semibold text-slate-800">${b.total}</span>
+        <span class="text-xs text-slate-400 w-12 text-right">${((b.total / total) * 100).toFixed(1)}%</span></div>`).join('')}
+    </div>
+  </div>
+</div>
+
+${low.length ? `<a href="#/stock" class="flex flex-wrap items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 mb-4 hover:bg-amber-100/60 transition">
+  <span class="w-9 h-9 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">${icon('package', 'w-5 h-5')}</span>
+  <div class="flex-1 min-w-0"><p class="font-semibold text-amber-800">${low.length} barang stok menipis</p>
+  <p class="text-xs text-amber-700 truncate">${esc(low.map((s) => `${s.name} (${s.stock} ${s.unit})`).join(', '))}</p></div>
+  <span class="text-xs font-medium text-amber-700">Buka Stok Barang →</span></a>` : ''}
+
+${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm mb-6 overflow-hidden">
+  <button type="button" id="btnUpgrade" class="w-full text-left px-5 py-4 flex items-center gap-3 hover:bg-red-100/50">
+    <span class="w-9 h-9 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">${icon('alert', 'w-5 h-5')}</span>
+    <div class="flex-1"><p class="font-semibold text-red-700">${ups.length} aset perlu di-upgrade</p>
+    <p class="text-xs text-red-500">Dari histori tiket yang mengandung kata "harus upgrade". Klik untuk lihat.</p></div>
+  </button>
+  <div id="upgradePanel" class="hidden border-t border-red-200 bg-white overflow-x-auto">
+    <table class="w-full text-sm"><thead><tr class="text-left text-slate-500 border-b bg-slate-50">
+      <th class="py-2 px-4">Aset</th><th class="py-2 px-4">Jenis</th><th class="py-2 px-4">Departement</th><th class="py-2 px-4">No. Tiket</th><th class="py-2 px-4">Catatan</th><th class="py-2 px-4">Tanggal</th><th class="py-2 px-4"></th></tr></thead>
+    <tbody>${ups.map((u) => `<tr class="border-b last:border-0 hover:bg-slate-50">
+      <td class="py-2 px-4 font-medium"><a href="#" data-asset-detail="${u.asset.id}" class="text-blue-600 hover:underline">${esc(u.asset.device_name || u.asset.asset_number)}</a></td>
+      <td class="py-2 px-4">${esc(u.asset.category)}</td><td class="py-2 px-4">${esc(u.asset.department || DASH)}</td>
+      <td class="py-2 px-4">${esc(u.ticket.ticket_number)}</td><td class="py-2 px-4 text-slate-500 max-w-xs truncate" title="${esc(u.text)}">${esc(u.text)}</td>
+      <td class="py-2 px-4 text-slate-500 whitespace-nowrap">${fmtDate(u.ticket.created_at)}</td>
+      <td class="py-2 px-4 text-right"><button data-ack="${u.asset.id}:${u.ticket.id}" class="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap">${icon('check', 'w-3.5 h-3.5')} Tandai Selesai</button></td>
+    </tr>`).join('')}</tbody></table>
+  </div>
+</div>` : ''}
+
+<div class="bg-white rounded-xl shadow-sm p-5">
+  <h2 class="font-semibold text-slate-700 mb-3">Tiket Terbaru</h2>
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead><tr class="text-left text-slate-500 border-b"><th class="py-2 pr-3">No. Tiket</th><th class="py-2 pr-3">Pelapor</th><th class="py-2 pr-3">Masalah</th><th class="py-2 pr-3">Status</th><th class="py-2 pr-3">Tanggal</th></tr></thead>
+    <tbody>${recent.map((t) => { const st = ticketStatus(t); return `<tr class="border-b last:border-0">
+      <td class="py-2 pr-3 font-medium whitespace-nowrap">${esc(t.ticket_number)}</td><td class="py-2 pr-3 whitespace-nowrap">${esc((userById(t.reported_by) || {}).full_name)}</td>
+      <td class="py-2 pr-3 max-w-xs truncate">${esc(t.problem_detail)}</td>
+      <td class="py-2 pr-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[st]}">${st}</span></td>
+      <td class="py-2 pr-3 text-slate-500 whitespace-nowrap">${fmtDateTime(t.created_at)}</td></tr>`; }).join('')}</tbody>
+  </table></div>
+</div>`;
+    },
+    bind() {
+      $('#btnBreakdown').onclick = () => $('#breakdownPanel').classList.toggle('hidden');
+      const bu = $('#btnUpgrade'); if (bu) bu.onclick = () => $('#upgradePanel').classList.toggle('hidden');
+      $$('[data-ack]').forEach((b) => (b.onclick = async () => {
+        if (!(await ask('Tandai aset ini sudah selesai di-upgrade?'))) return;
+        const [a, t] = b.dataset.ack.split(':').map(Number);
+        db.upgradeAck.push({ asset_id: a, ticket_id: t }); save(); render(); toast('Aset ditandai sudah di-upgrade.');
+      }));
+      $$('[data-asset-detail]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); showAssetDetail(+a.dataset.assetDetail); }));
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Kartu detail aset (dipakai di Aset Saya & modal detail)
+  // ------------------------------------------------------------------
+  function assetCard(a) {
+    const rows = (pairs) => `<dl class="divide-y divide-slate-100">${pairs.map(([k, v]) => `<div class="asset-field-row"><dt>${k}</dt><dd>${v === '' || v == null ? DASH : v}</dd></div>`).join('')}</dl>`;
+    const owners = ownersOf(a.id);
+    const history = db.tickets.filter((t) => t.asset_id === a.id).sort((x, y) => y.created_at.localeCompare(x.created_at));
+    const sw = (a.software || []).map((s) => `<div>${esc(s.name)}${s.serial ? ' (' + esc(s.serial) + ')' : ''} — ${s.status === 'Original' ? 'Original' : 'Belum Original'}</div>`).join('');
+    const isTablet = /tablet/i.test(a.category);
+    return `
+<div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+  <div class="bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-5 text-white flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center shrink-0">${categoryIcon(a.category)}</div>
+      <div class="min-w-0"><h2 class="font-semibold text-lg truncate">${esc(a.device_name || a.asset_number)}</h2><p class="text-brand-100 text-sm truncate">${esc(a.asset_number)}</p></div>
+    </div>
+    <span class="px-3 py-1 rounded-full text-xs font-semibold ${ASSET_STATUS_BADGE[a.status]}">${esc(a.status)}</span>
+  </div>
+  <div class="flex justify-end gap-2 px-4 pt-3">
+    ${ARTIFACT ? '' : `<button data-print-asset="${a.id}" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium">${icon('printer', 'w-3.5 h-3.5')} Print</button>`}
+  </div>
+  <div class="px-4 pt-3"><div class="flex gap-1 overflow-x-auto">
+    ${[['General', 'tGeneral'], ['Hardware', 'tHardware'], ['Network', 'tNetwork'], ['System', 'tSystem'], ['Riwayat', 'tHistory']].map(([l, id], i) => `<button type="button" class="asset-tab-btn ${i === 0 ? 'asset-tab-active' : ''}" data-tab="${id}">${l}</button>`).join('')}
+  </div></div>
+  <div class="p-5">
+    <div data-panel="tGeneral">${rows([
+      ['Nomor Aset', esc(a.asset_number)], ['Jenis Aset', esc(a.category)], ['Nama Perangkat', esc(a.device_name)],
+      ['Pengguna', esc(owners.map((o) => o.full_name).join(', '))], ['Departement', esc(a.department)], ['Email Pengguna', esc(a.owner_email)],
+      ['Lokasi', esc(a.location)], ['Serial Number', esc(a.serial_number)], [isTablet ? 'Received Date' : 'Tanggal Pembelian', a.purchase_date ? fmtDate(a.purchase_date) : ''],
+      ...(isTablet ? [['ID Tablet', esc(a.tablet_id)], ['Kondisi', esc(a.tablet_condition)]] : []),
+    ])}</div>
+    <div data-panel="tHardware" class="hidden">${rows([['Processor', esc(a.processor)], ['Motherboard / Brand', esc(a.motherboard_brand)], ['RAM', esc(a.ram)], ['Storage', esc(a.storage)], ['Monitor', esc(a.monitor_info)], ['Printer', esc(a.printer_info)], ['Aksesoris', esc(a.accessories)]])}</div>
+    <div data-panel="tNetwork" class="hidden">${rows([['IP Address', esc(a.ip_address)], ['Hostname', esc(a.hostname)]])}</div>
+    <div data-panel="tSystem" class="hidden">${rows([['Sistem Operasi', esc(a.os_name)], ['Status Lisensi OS', a.os_status === 'Original' ? 'Original' : 'Belum Original'], ['Software Terpasang', sw ? `<div class="space-y-1">${sw}</div>` : ''], ['Tanggal Input', fmtDate(a.created_at)]])}</div>
+    <div data-panel="tHistory" class="hidden">${history.length ? `<div class="space-y-3">${history.map((t) => { const w = workOf(t.id); const st = ticketStatus(t); return `
+      <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+        <div class="flex items-center justify-between gap-2 mb-1"><span class="text-sm font-medium text-slate-700">${esc(t.ticket_number)}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full ${TICKET_BADGE[st]}">${st}</span></div>
+        <p class="text-xs text-slate-400 mb-1">${fmtDateTime(t.created_at)}</p>
+        <p class="text-xs text-slate-600"><b>Masalah:</b> ${esc(t.problem_detail)}</p>
+        ${w && w.work_detail ? `<p class="text-xs text-slate-600 mt-1"><b>Pengerjaan:</b> ${esc(w.work_detail)}</p>` : ''}
+        ${w && w.asset_check ? `<p class="text-xs text-slate-600 mt-1"><b>Hasil Pengecekan:</b> ${esc(w.asset_check)}</p>` : ''}
+      </div>`; }).join('')}</div>` : '<p class="text-sm text-slate-400 text-center py-6">Belum ada riwayat perbaikan.</p>'}</div>
+  </div>
+</div>`;
+  }
+  function bindAssetCard(root) {
+    $$('.asset-tab-btn', root).forEach((b) => (b.onclick = () => {
+      $$('.asset-tab-btn', root).forEach((x) => x.classList.toggle('asset-tab-active', x === b));
+      $$('[data-panel]', root).forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== b.dataset.tab));
+    }));
+    $$('[data-print-asset]', root).forEach((b) => (b.onclick = () => printAsset(+b.dataset.printAsset)));
+  }
+  function showAssetDetail(id) {
+    const a = assetById(id);
+    if (!a) return;
+    openModal('Detail Aset', assetCard(a), { wide: true, onMount: bindAssetCard });
+  }
+  function printAsset(id) {
+    const a = assetById(id);
+    const w = window.open('', '_blank');
+    if (!w) { toast('Pop-up diblokir browser. Izinkan pop-up untuk mencetak.', false); return; }
+    const row = (k, v) => `<tr><td style="padding:4px 8px;color:#555;width:40%">${k}</td><td style="padding:4px 8px">${esc(v || DASH)}</td></tr>`;
+    w.document.write(`<!DOCTYPE html><html><head><title>${esc(a.asset_number)}</title><meta charset="utf-8"></head>
+      <body style="font-family:Arial,sans-serif;font-size:13px;max-width:700px;margin:24px auto">
+      <div style="font-size:17px;font-weight:bold;color:#1F3DD1">${esc(appName())}</div><div style="color:#777;margin-bottom:12px">Detail Aset IT</div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #ddd">
+      ${row('Nomor Aset', a.asset_number)}${row('Jenis', a.category)}${row('Nama Perangkat', a.device_name)}${row('Pengguna', ownersOf(a.id).map((o) => o.full_name).join(', '))}
+      ${row('Departement', a.department)}${row('Lokasi', a.location)}${row('IP Address', a.ip_address)}${row('Hostname', a.hostname)}
+      ${row('Processor', a.processor)}${row('RAM', a.ram)}${row('Storage', a.storage)}${row('OS', a.os_name)}${row('Serial Number', a.serial_number)}${row('Status', a.status)}
+      </table><p style="color:#999;font-size:11px;margin-top:16px">Dokumen ini dibuat otomatis oleh ${esc(appName())} (demo).<br>${esc(COPYRIGHT)}</p>
+      <script>window.onload=function(){window.print()}<\/script></body></html>`);
+    w.document.close();
+  }
+
+  // ------------------------------------------------------------------
+  // Aset (admin)
+  // ------------------------------------------------------------------
+  const assetFilter = { q: '', cat: '', dept: '', status: '', page: 1 };
+  const PER_PAGE = 15;
+  function filteredAssets() {
+    const q = assetFilter.q.toLowerCase();
+    return db.assets.filter((a) => {
+      if (assetFilter.cat && a.category !== assetFilter.cat) return false;
+      if (assetFilter.dept && a.department !== assetFilter.dept) return false;
+      if (assetFilter.status && a.status !== assetFilter.status) return false;
+      if (!q) return true;
+      const hay = [a.asset_number, a.device_name, a.hostname, a.ip_address, a.serial_number, a.location, a.department, ownersOf(a.id).map((o) => o.full_name).join(' ')].join(' ').toLowerCase();
+      return hay.includes(q);
+    }).sort((a, b) => b.id - a.id);
+  }
+  function assetRows() {
+    const list = filteredAssets();
+    const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+    assetFilter.page = Math.min(assetFilter.page, pages);
+    const slice = list.slice((assetFilter.page - 1) * PER_PAGE, assetFilter.page * PER_PAGE);
+    const body = slice.map((a) => {
+      const owners = ownersOf(a.id);
+      const spec = [a.processor, a.ram, a.storage].filter(Boolean).join(' / ');
+      return `<tr class="border-b last:border-0 hover:bg-slate-50">
+        <td class="asset-col-no py-2 px-3 font-medium whitespace-nowrap"><a href="#" data-detail="${a.id}" class="text-blue-600 hover:underline">${esc(a.asset_number)}</a><div class="text-xs text-slate-400 font-normal">${esc(a.device_name || '')}</div></td>
+        <td class="py-2 px-3 whitespace-nowrap">${esc(a.category)}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${esc(owners.map((o) => o.full_name).join(', ') || DASH)}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${esc(a.department || DASH)}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${esc(a.ip_address || DASH)}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${esc(a.hostname || DASH)}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${esc(a.location || DASH)}</td>
+        <td class="py-2 px-3 min-w-[12rem] text-xs text-slate-600">${esc(spec || DASH)}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${esc(a.os_name || DASH)}${a.os_name ? `<div class="text-xs ${a.os_status === 'Original' ? 'text-green-600' : 'text-red-500'}">${a.os_status}</div>` : ''}</td>
+        <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${ASSET_STATUS_BADGE[a.status]}">${esc(a.status)}</span></td>
+        <td class="py-2 px-3 whitespace-nowrap text-right">
+          <button data-edit="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600" title="Edit">${icon('pencil')}</button>
+          ${ARTIFACT ? '' : `<button data-print="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100" title="Print">${icon('printer')}</button>`}
+          <button data-del="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600" title="Hapus">${icon('trash')}</button>
+        </td></tr>`;
+    }).join('') || `<tr><td colspan="11" class="py-8 text-center text-slate-400">Tidak ada aset yang cocok.</td></tr>`;
+    const pager = `<div class="flex items-center justify-between gap-2 px-4 py-3 text-sm text-slate-500 border-t">
+      <span>${list.length} aset</span>
+      <div class="flex items-center gap-1">
+        <button data-page="${assetFilter.page - 1}" ${assetFilter.page <= 1 ? 'disabled' : ''} class="px-3 py-1 rounded-lg border disabled:opacity-40">‹</button>
+        <span class="px-2">${assetFilter.page} / ${pages}</span>
+        <button data-page="${assetFilter.page + 1}" ${assetFilter.page >= pages ? 'disabled' : ''} class="px-3 py-1 rounded-lg border disabled:opacity-40">›</button>
+      </div></div>`;
+    return { body, pager };
+  }
+  PAGES.assets = {
+    render() {
+      const { body, pager } = assetRows();
+      const sel = (id, list, val, empty) => `<select id="${id}" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">${options(list, val, empty)}</select>`;
+      return `
+<div class="bg-white rounded-xl shadow-sm mb-4 p-3 flex flex-wrap items-center gap-2">
+  <div class="relative flex-1 min-w-[12rem]">
+    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">${icon('search')}</span>
+    <input id="fQ" value="${esc(assetFilter.q)}" placeholder="Cari no. aset, nama, IP, hostname, pengguna…" class="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm">
+  </div>
+  ${sel('fCat', db.categories.map((c) => c.name), assetFilter.cat, 'Semua Jenis')}
+  ${sel('fDept', db.departments, assetFilter.dept, 'Semua Departement')}
+  ${sel('fStatus', Object.keys(ASSET_STATUS), assetFilter.status, 'Semua Status')}
+  ${ARTIFACT ? '' : `<button id="btnExport" class="${btnGhost}">${icon('download')} Export CSV</button>`}
+  <button id="btnAddAsset" class="${btnPrimary}">${icon('plus')} Tambah Aset</button>
+</div>
+<div class="bg-white rounded-xl shadow-sm">
+  <div class="asset-table-wrap"><table class="w-full text-sm">
+    <thead><tr class="text-left text-slate-500">
+      <th class="asset-col-no py-2.5 px-3">No. Aset</th><th class="py-2.5 px-3">Jenis</th><th class="py-2.5 px-3">Pengguna</th><th class="py-2.5 px-3">Departement</th>
+      <th class="py-2.5 px-3">IP</th><th class="py-2.5 px-3">Hostname</th><th class="py-2.5 px-3">Lokasi</th><th class="py-2.5 px-3">Spesifikasi</th><th class="py-2.5 px-3">OS</th><th class="py-2.5 px-3">Status</th><th class="py-2.5 px-3 text-right">Aksi</th>
+    </tr></thead>
+    <tbody id="assetBody">${body}</tbody>
+  </table></div>
+  <div id="assetPager">${pager}</div>
+</div>`;
+    },
+    bind() {
+      const refresh = () => { const { body, pager } = assetRows(); $('#assetBody').innerHTML = body; $('#assetPager').innerHTML = pager; bindRows(); };
+      const bindRows = () => {
+        $$('[data-detail]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); showAssetDetail(+a.dataset.detail); }));
+        $$('[data-edit]').forEach((b) => (b.onclick = () => assetForm(+b.dataset.edit)));
+        $$('[data-print]').forEach((b) => (b.onclick = () => printAsset(+b.dataset.print)));
+        $$('[data-del]').forEach((b) => (b.onclick = async () => {
+          const a = assetById(+b.dataset.del);
+          if (!(await ask(`Hapus aset ${a.asset_number}?`))) return;
+          db.assets = db.assets.filter((x) => x.id !== a.id);
+          db.assetOwners = db.assetOwners.filter((o) => o.asset_id !== a.id);
+          db.tickets.forEach((t) => { if (t.asset_id === a.id) t.asset_id = null; });
+          save(); refresh(); toast('Aset dihapus.');
+        }));
+        $$('[data-page]').forEach((b) => (b.onclick = () => { assetFilter.page = +b.dataset.page; refresh(); }));
+      };
+      $('#fQ').oninput = (e) => { assetFilter.q = e.target.value; assetFilter.page = 1; refresh(); };
+      $('#fCat').onchange = (e) => { assetFilter.cat = e.target.value; assetFilter.page = 1; refresh(); };
+      $('#fDept').onchange = (e) => { assetFilter.dept = e.target.value; assetFilter.page = 1; refresh(); };
+      $('#fStatus').onchange = (e) => { assetFilter.status = e.target.value; assetFilter.page = 1; refresh(); };
+      $('#btnAddAsset').onclick = () => assetForm(null);
+      if ($('#btnExport')) $('#btnExport').onclick = () => {
+        const rows = [['No. Aset', 'Jenis', 'Nama Perangkat', 'Pengguna', 'Departement', 'Email', 'IP', 'Hostname', 'Lokasi', 'Processor', 'RAM', 'Storage', 'OS', 'Status OS', 'Serial Number', 'Tanggal Pembelian', 'Status']];
+        filteredAssets().forEach((a) => rows.push([a.asset_number, a.category, a.device_name, ownersOf(a.id).map((o) => o.full_name).join(', '), a.department, a.owner_email, a.ip_address, a.hostname, a.location, a.processor, a.ram, a.storage, a.os_name, a.os_status, a.serial_number, a.purchase_date, a.status]));
+        downloadCsv('aset_it_demo.csv', rows);
+      };
+      bindRows();
+    },
+  };
+
+  function assetForm(id) {
+    const a = id ? clone(assetById(id)) : { category: db.categories[0].name, status: 'Stok', os_status: 'Belum Original', software: [], tablet_condition: 'Bagus' };
+    const owners = id ? ownersOf(id).map((u) => u.id) : [];
+    const activeUsers = db.users.filter((u) => u.is_active).sort((x, y) => x.full_name.localeCompare(y.full_name));
+    const inp = (name, extra = '') => `<input name="${name}" value="${esc(a[name] || '')}" class="${inputCls}" ${extra}>`;
+    const swRow = (s = {}) => `<div class="sw-row grid grid-cols-12 gap-2">
+      <input data-sw="name" value="${esc(s.name || '')}" placeholder="Nama software" class="${inputCls} col-span-5">
+      <input data-sw="serial" value="${esc(s.serial || '')}" placeholder="Serial" class="${inputCls} col-span-3">
+      <select data-sw="status" class="${inputCls} col-span-3">${options(['Original', 'Belum Original'], s.status || 'Original')}</select>
+      <button type="button" data-sw-del class="col-span-1 text-slate-400 hover:text-red-600 flex items-center justify-center">${icon('x')}</button></div>`;
+    const body = `
+<form id="assetForm" class="space-y-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    ${field('Jenis Aset', `<select name="category" id="fmCat" class="${inputCls}">${options(db.categories.map((c) => c.name), a.category)}</select>`)}
+    ${field('Status', `<select name="status" class="${inputCls}">${options(Object.keys(ASSET_STATUS), a.status)}</select>`)}
+    ${field('Pengguna', `<select name="owner" id="fmOwner" class="${inputCls}">${options(activeUsers.map((u) => ({ value: u.id, label: `${u.full_name} (${u.department || '-'})` })), owners[0] || '', '— Tidak ada (Stok) —')}</select>`)}
+    ${field('Departement', `<select name="department" id="fmDept" class="${inputCls}">${options(db.departments, a.department, '—')}</select>`)}
+    ${field('Lokasi', inp('location', 'id="fmLoc" placeholder="mis. Lantai 2 / Line 1"'))}
+    ${field('Nomor Aset', `<div class="flex gap-2"><input name="asset_number" id="fmNo" value="${esc(a.asset_number || '')}" required class="${inputCls}"><button type="button" id="btnGen" class="shrink-0 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 text-xs font-medium">Buatkan Otomatis</button></div>
+      <p class="text-xs text-slate-400 mt-1">Format: ${esc(prefix())}/Departement/Jenis/Urutan</p>`)}
+    ${field('Nama Perangkat', inp('device_name'))}
+    ${field('Email Pengguna', inp('owner_email', 'id="fmEmail" type="email"'))}
+    ${field('IP Address', inp('ip_address'))}
+    ${field('Hostname', inp('hostname'))}
+    ${field('Processor', inp('processor'))}
+    ${field('Motherboard / Brand Type', inp('motherboard_brand'))}
+    ${field('RAM', inp('ram'))}
+    ${field('Storage', inp('storage'))}
+    ${field('Sistem Operasi', inp('os_name'))}
+    ${field('Status OS', `<select name="os_status" class="${inputCls}">${options(['Original', 'Belum Original'], a.os_status)}</select>`)}
+    ${field('Serial Number', inp('serial_number'))}
+    ${field('Tanggal Pembelian', `<input type="date" name="purchase_date" value="${esc(a.purchase_date || '')}" class="${inputCls}">`)}
+    ${field('Monitor', inp('monitor_info'))}
+    ${field('Printer', inp('printer_info'))}
+    ${field('Aksesoris', inp('accessories'), 'sm:col-span-2')}
+  </div>
+  <div id="tabletBox" class="${/tablet/i.test(a.category) ? '' : 'hidden'} grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg bg-blue-50 p-3">
+    ${field('ID Tablet', inp('tablet_id', 'maxlength="50"'))}
+    ${field('Status Condition', `<select name="tablet_condition" class="${inputCls}">${options(['Bagus', 'Rusak'], a.tablet_condition || 'Bagus')}</select>`)}
+  </div>
+  <div>
+    <div class="flex items-center justify-between mb-1"><label class="text-sm font-medium text-slate-600">Software Terpasang</label>
+    <button type="button" id="btnSwAdd" class="text-xs font-medium text-blue-600 inline-flex items-center gap-1">${icon('plus', 'w-3.5 h-3.5')} Tambah</button></div>
+    <div id="swList" class="space-y-2">${(a.software || []).map(swRow).join('')}</div>
+  </div>
+  <div class="flex justify-end gap-2 pt-2 border-t">
+    <button type="button" data-close class="${btnGhost}">Batal</button>
+    <button class="${btnPrimary}">${icon('check')} Simpan</button>
+  </div>
+</form>`;
+    openModal(id ? 'Edit Aset' : 'Tambah Aset', body, {
+      wide: true,
+      onMount(root) {
+        const f = $('#assetForm', root);
+        $('#fmOwner', root).onchange = (e) => {
+          const u = userById(+e.target.value);
+          if (u) { $('#fmDept', root).value = u.department || ''; if (!$('#fmEmail', root).value) $('#fmEmail', root).value = u.email || ''; f.status.value = 'Digunakan'; }
+        };
+        $('#fmCat', root).onchange = (e) => $('#tabletBox', root).classList.toggle('hidden', !/tablet/i.test(e.target.value));
+        $('#btnGen', root).onclick = () => {
+          const n = nextAssetNumber(f.category.value, f.department.value, f.location.value, id);
+          if (!n) { toast('Untuk Tablet, isi Lokasi (Line) dulu.', false); return; }
+          $('#fmNo', root).value = n;
+        };
+        $('#btnSwAdd', root).onclick = () => { $('#swList', root).insertAdjacentHTML('beforeend', swRow()); };
+        $('#swList', root).onclick = (e) => { const b = e.target.closest('[data-sw-del]'); if (b) b.closest('.sw-row').remove(); };
+        f.onsubmit = (e) => {
+          e.preventDefault();
+          const d = formData(f);
+          const no = d.asset_number.trim();
+          if (db.assets.some((x) => x.asset_number === no && x.id !== id)) { toast('Nomor Aset sudah dipakai aset lain.', false); return; }
+          const software = $$('.sw-row', root).map((r) => ({ name: $('[data-sw=name]', r).value.trim(), serial: $('[data-sw=serial]', r).value.trim(), status: $('[data-sw=status]', r).value })).filter((s) => s.name);
+          const rec = Object.assign(id ? assetById(id) : { id: nextId(db.assets), created_at: new Date().toISOString() }, {
+            asset_number: no, category: d.category, device_name: d.device_name.trim(), department: d.department, owner_email: d.owner_email.trim(),
+            ip_address: d.ip_address.trim(), hostname: d.hostname.trim(), os_name: d.os_name.trim(), os_status: d.os_status, motherboard_brand: d.motherboard_brand.trim(),
+            processor: d.processor.trim(), ram: d.ram.trim(), storage: d.storage.trim(), serial_number: d.serial_number.trim(), purchase_date: d.purchase_date,
+            location: d.location.trim(), status: d.status, printer_info: d.printer_info.trim(), monitor_info: d.monitor_info.trim(), accessories: d.accessories.trim(),
+            software, tablet_id: /tablet/i.test(d.category) ? (d.tablet_id || '').trim() : '', tablet_condition: /tablet/i.test(d.category) ? d.tablet_condition : '',
+          });
+          if (!id) db.assets.push(rec);
+          db.assetOwners = db.assetOwners.filter((o) => o.asset_id !== rec.id);
+          if (d.owner) {
+            db.assetOwners.push({ asset_id: rec.id, user_id: +d.owner });
+            const u = userById(+d.owner);
+            if (/pc|laptop/i.test(rec.category)) { rec.pc_username = u.pc_username; rec.pc_password = u.pc_password; }
+          }
+          save(); closeModal(); render(); toast(id ? 'Aset diperbarui.' : 'Aset ditambahkan.');
+        };
+      },
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Kategori aset
+  // ------------------------------------------------------------------
+  PAGES.categories = {
+    render() {
+      const rows = [...db.categories].sort((a, b) => a.sort_order - b.sort_order).map((c) => {
+        const used = db.assets.filter((a) => a.category === c.name).length;
+        return `<tr class="border-b last:border-0 hover:bg-slate-50">
+          <td class="py-2.5 px-4"><div class="flex items-center gap-2 text-slate-700">${categoryIcon(c.name, 'w-5 h-5 text-slate-400')} <span class="font-medium">${esc(c.name)}</span></div></td>
+          <td class="py-2.5 px-4"><span class="font-mono text-xs bg-slate-100 rounded px-2 py-0.5">${esc(c.abbr)}</span></td>
+          <td class="py-2.5 px-4">${c.sort_order}</td><td class="py-2.5 px-4">${used}</td>
+          <td class="py-2.5 px-4 text-right whitespace-nowrap">
+            <button data-edit="${c.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600">${icon('pencil')}</button>
+            <button data-del="${c.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">${icon('trash')}</button></td></tr>`;
+      }).join('');
+      return `<div class="max-w-3xl">
+<div class="flex flex-wrap items-center justify-between gap-2 mb-4"><p class="text-sm text-slate-500">Jenis aset yang bisa dipilih saat menambah aset. Singkatan dipakai di Nomor Aset otomatis, contoh: ${esc(prefix())}/FIN/PC/001.</p>
+<button id="btnAddCat" class="${btnPrimary}">${icon('plus')} Tambah Kategori</button></div>
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto"><table class="w-full text-sm">
+<thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Nama</th><th class="py-2.5 px-4">Singkatan</th><th class="py-2.5 px-4">Urutan</th><th class="py-2.5 px-4">Jumlah Aset</th><th class="py-2.5 px-4"></th></tr></thead>
+<tbody>${rows}</tbody></table></div></div>`;
+    },
+    bind() {
+      const form = (c) => openModal(c ? 'Edit Kategori' : 'Tambah Kategori', `<form id="catForm" class="space-y-3">
+        ${field('Nama Kategori', `<input name="name" value="${esc(c ? c.name : '')}" required maxlength="50" class="${inputCls}">`)}
+        ${field('Singkatan', `<input name="abbr" value="${esc(c ? c.abbr : '')}" required maxlength="10" class="${inputCls} uppercase">`)}
+        ${field('Urutan Tampil', `<input name="sort_order" type="number" min="0" value="${c ? c.sort_order : db.categories.length + 1}" class="${inputCls}">`)}
+        <div class="flex justify-end gap-2 pt-2"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
+        onMount(root) {
+          $('#catForm', root).onsubmit = (e) => {
+            e.preventDefault();
+            const d = formData(e.target);
+            const name = d.name.trim();
+            if (db.categories.some((x) => x.name.toLowerCase() === name.toLowerCase() && (!c || x.id !== c.id))) { toast('Nama kategori sudah ada.', false); return; }
+            if (c) { db.assets.forEach((a) => { if (a.category === c.name) a.category = name; }); Object.assign(c, { name, abbr: d.abbr.trim().toUpperCase(), sort_order: +d.sort_order || 0 }); }
+            else db.categories.push({ id: nextId(db.categories), name, abbr: d.abbr.trim().toUpperCase(), sort_order: +d.sort_order || 0 });
+            save(); closeModal(); render(); toast('Kategori disimpan.');
+          };
+        },
+      });
+      $('#btnAddCat').onclick = () => form(null);
+      $$('[data-edit]').forEach((b) => (b.onclick = () => form(db.categories.find((c) => c.id === +b.dataset.edit))));
+      $$('[data-del]').forEach((b) => (b.onclick = async () => {
+        const c = db.categories.find((x) => x.id === +b.dataset.del);
+        if (db.assets.some((a) => a.category === c.name)) { toast('Kategori masih dipakai aset, tidak bisa dihapus.', false); return; }
+        if (!(await ask(`Hapus kategori ${c.name}?`))) return;
+        db.categories = db.categories.filter((x) => x !== c); save(); render(); toast('Kategori dihapus.');
+      }));
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Management User
+  // ------------------------------------------------------------------
+  const userFilter = { q: '' };
+  PAGES.users = {
+    render() {
+      const q = userFilter.q.toLowerCase();
+      const list = db.users.filter((u) => !q || [u.full_name, u.username, u.email, u.department].join(' ').toLowerCase().includes(q));
+      const rows = list.map((u) => `<tr class="border-b last:border-0 hover:bg-slate-50">
+        <td class="py-2.5 px-4"><div class="font-medium text-slate-700">${esc(u.full_name)}</div><div class="text-xs text-slate-400">${esc(u.email || '')}</div></td>
+        <td class="py-2.5 px-4">${esc(u.username)}</td><td class="py-2.5 px-4">${esc(u.department || DASH)}</td>
+        <td class="py-2.5 px-4 text-xs">${u.pc_username ? `${esc(u.pc_username)} / <span data-pw="${esc(u.pc_password)}" class="font-mono">••••••</span> <button data-showpw class="text-slate-400 hover:text-slate-600 align-middle">${icon('eye', 'w-3.5 h-3.5')}</button>` : DASH}</td>
+        <td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}">${u.role}</span></td>
+        <td class="py-2.5 px-4">${u.is_active ? '<span class="text-green-600 text-xs font-medium">Aktif</span>' : '<span class="text-slate-400 text-xs">Nonaktif</span>'}</td>
+        <td class="py-2.5 px-4">${assetsOfUser(u.id).length}</td>
+        <td class="py-2.5 px-4 text-right whitespace-nowrap">
+          <button data-edit="${u.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600">${icon('pencil')}</button>
+          <button data-del="${u.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">${icon('trash')}</button></td></tr>`).join('');
+      return `
+<div class="bg-white rounded-xl shadow-sm mb-4 p-3 flex flex-wrap items-center gap-2">
+  <div class="relative flex-1 min-w-[12rem]"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">${icon('search')}</span>
+  <input id="uQ" value="${esc(userFilter.q)}" placeholder="Cari nama, username, departement…" class="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm"></div>
+  <button id="btnAddUser" class="${btnPrimary}">${icon('plus')} Tambah User</button>
+</div>
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto"><table class="w-full text-sm">
+<thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Nama</th><th class="py-2.5 px-4">Username</th><th class="py-2.5 px-4">Departement</th><th class="py-2.5 px-4">Login PC</th><th class="py-2.5 px-4">Role</th><th class="py-2.5 px-4">Status</th><th class="py-2.5 px-4">Aset</th><th class="py-2.5 px-4"></th></tr></thead>
+<tbody>${rows || '<tr><td colspan="8" class="py-8 text-center text-slate-400">Tidak ada user.</td></tr>'}</tbody></table></div>`;
+    },
+    bind() {
+      const q = $('#uQ');
+      q.oninput = (e) => { userFilter.q = e.target.value; render(); const n = $('#uQ'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+      $$('[data-showpw]').forEach((b) => (b.onclick = () => { const s = b.previousElementSibling; s.textContent = s.textContent.startsWith('•') ? s.dataset.pw : '••••••'; }));
+      const form = (u) => openModal(u ? 'Edit User' : 'Tambah User', `<form id="userForm" class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          ${field('Nama Lengkap', `<input name="full_name" value="${esc(u ? u.full_name : '')}" required class="${inputCls}">`)}
+          ${field('Username', `<input name="username" value="${esc(u ? u.username : '')}" required class="${inputCls}">`)}
+          ${field('Email', `<input name="email" type="email" value="${esc(u ? u.email : '')}" class="${inputCls}">`)}
+          ${field('Departement', `<select name="department" class="${inputCls}">${options(db.departments, u ? u.department : '', '—')}</select>`)}
+          ${field('Password Login' + (u ? ' <span class="text-xs text-slate-400">(kosongkan jika tidak diubah)</span>' : ''), `<input name="password" type="password" ${u ? '' : 'required'} class="${inputCls}">`)}
+          ${field('Role', `<select name="role" class="${inputCls}">${options([{ value: 'user', label: 'User' }, { value: 'admin', label: 'Admin' }], u ? u.role : 'user')}</select>`)}
+          ${field('Username PC', `<input name="pc_username" value="${esc(u ? u.pc_username : '')}" class="${inputCls}">`)}
+          ${field('Password PC', `<input name="pc_password" value="${esc(u ? u.pc_password : '')}" class="${inputCls}">`)}
+        </div>
+        <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" ${!u || u.is_active ? 'checked' : ''} class="rounded"> Aktif</label>
+        <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
+        wide: true,
+        onMount(root) {
+          $('#userForm', root).onsubmit = (e) => {
+            e.preventDefault();
+            const d = formData(e.target);
+            const uname = d.username.trim();
+            if (db.users.some((x) => x.username === uname && (!u || x.id !== u.id))) { toast('Username sudah dipakai.', false); return; }
+            if (u && u.id === sessionUserId && d.role !== 'admin') { toast('Tidak bisa menurunkan role akun yang sedang dipakai.', false); return; }
+            const rec = Object.assign(u || { id: nextId(db.users), created_at: new Date().toISOString() }, {
+              full_name: d.full_name.trim(), username: uname, email: d.email.trim(), department: d.department, role: d.role,
+              pc_username: d.pc_username.trim(), pc_password: d.pc_password.trim(), is_active: d.is_active ? 1 : 0,
+            });
+            if (d.password) rec.demo_password = d.password;
+            if (!u) db.users.push(rec);
+            // Departement & email user ikut ke aset yang dipakainya
+            assetsOfUser(rec.id).forEach((a) => { a.department = rec.department; a.owner_email = rec.email; });
+            save(); closeModal(); render(); toast('User disimpan.');
+          };
+        },
+      });
+      $('#btnAddUser').onclick = () => form(null);
+      $$('[data-edit]').forEach((b) => (b.onclick = () => form(userById(+b.dataset.edit))));
+      $$('[data-del]').forEach((b) => (b.onclick = async () => {
+        const u = userById(+b.dataset.del);
+        if (u.id === sessionUserId) { toast('Tidak bisa menghapus akun yang sedang dipakai.', false); return; }
+        if (u.username === 'user' || u.username === 'admin') { toast('Akun demo utama tidak bisa dihapus.', false); return; }
+        if (!(await ask(`Hapus user ${u.full_name}?`))) return;
+        db.users = db.users.filter((x) => x !== u);
+        assetsOfUser(u.id).forEach((a) => { a.department = ''; });
+        db.assetOwners = db.assetOwners.filter((o) => o.user_id !== u.id);
+        save(); render(); toast('User dihapus.');
+      }));
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Ticketing
+  // ------------------------------------------------------------------
+  const ticketFilter = { tab: 'all', q: '' };
+  function newTicketNumber() {
+    const d = todayStr().replace(/-/g, '');
+    const n = db.tickets.filter((t) => t.ticket_number.includes('-' + d + '-')).length + 1;
+    let num; let i = n;
+    do { num = `TCK-${d}-${String(i).padStart(4, '0')}`; i++; } while (db.tickets.some((t) => t.ticket_number === num));
+    return num;
+  }
+  function ticketDetailModal(t) {
+    const w = workOf(t.id) || { work_detail: '', asset_check: '' };
+    const logs = db.ticketLogs.filter((l) => l.ticket_id === t.id).sort((a, b) => a.changed_at.localeCompare(b.changed_at));
+    const a = assetById(t.asset_id);
+    const canEdit = isAdmin() && !isCancelled(t);
+    const cancel = db.cancellations.find((c) => c.ticket_id === t.id);
+    openModal('Tiket ' + t.ticket_number, `
+      <div class="space-y-4 text-sm">
+        <div class="grid grid-cols-2 gap-3">
+          <div><p class="text-xs text-slate-400">Pelapor</p><p class="font-medium">${esc((userById(t.reported_by) || {}).full_name || DASH)}</p></div>
+          <div><p class="text-xs text-slate-400">Aset</p><p class="font-medium">${a ? esc(a.asset_number) : DASH}</p></div>
+          <div><p class="text-xs text-slate-400">Status</p><span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[ticketStatus(t)]}">${ticketStatus(t)}</span></div>
+          <div><p class="text-xs text-slate-400">Dibuat</p><p>${fmtDateTime(t.created_at)}</p></div>
+        </div>
+        <div><p class="text-xs text-slate-400 mb-1">Rincian Masalah</p><p class="bg-slate-50 rounded-lg p-3">${esc(t.problem_detail)}</p></div>
+        ${cancel ? `<div class="bg-slate-100 rounded-lg p-3 text-slate-600">Dibatalkan oleh user${cancel.reason ? ': ' + esc(cancel.reason) : ''}</div>` : ''}
+        <form id="workForm" class="space-y-3">
+          ${field('Rincian Pengerjaan', `<textarea name="work_detail" rows="3" ${canEdit ? '' : 'readonly'} class="${inputCls}" placeholder="Apa yang sudah dikerjakan IT">${esc(w.work_detail || '')}</textarea>`)}
+          ${field('Hasil Pengecekan & Kesimpulan', `<textarea name="asset_check" rows="3" ${canEdit ? '' : 'readonly'} class="${inputCls}" placeholder='Tulis "harus upgrade" agar aset muncul di notifikasi Dashboard'>${esc(w.asset_check || '')}</textarea>`)}
+          ${canEdit ? `<div class="flex justify-end"><button class="${btnPrimary}">${icon('check')} Simpan Rincian</button></div>` : ''}
+        </form>
+        <div><p class="text-xs text-slate-400 mb-2">Riwayat Status</p><ol class="border-l-2 border-slate-200 pl-4 space-y-2">
+          ${logs.map((l) => `<li><span class="font-medium">${esc(l.status)}</span> <span class="text-xs text-slate-400">${fmtDateTime(l.changed_at)}</span><div class="text-xs text-slate-500">${esc(l.note || '')}</div></li>`).join('')}
+        </ol></div>
+      </div>`, {
+      wide: true,
+      onMount(root) {
+        const f = $('#workForm', root);
+        if (!canEdit) return;
+        f.onsubmit = (e) => {
+          e.preventDefault();
+          const d = formData(f);
+          const ex = workOf(t.id);
+          if (ex) Object.assign(ex, { work_detail: d.work_detail.trim(), asset_check: d.asset_check.trim() });
+          else db.workDetails.push({ ticket_id: t.id, work_detail: d.work_detail.trim(), asset_check: d.asset_check.trim() });
+          save(); closeModal(); render(); toast('Rincian pengerjaan disimpan.');
+        };
+      },
+    });
+  }
+
+  PAGES.tickets = {
+    render() { return isAdmin() ? renderAdminTickets() : renderUserTickets(); },
+    bind() { if (isAdmin()) bindAdminTickets(); else bindUserTickets(); },
+  };
+
+  function renderAdminTickets() {
+    const all = [...db.tickets].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const counts = { all: all.length };
+    ['Menunggu', 'Proses', 'Selesai', 'Dibatalkan'].forEach((s) => (counts[s] = all.filter((t) => ticketStatus(t) === s).length));
+    const q = ticketFilter.q.toLowerCase();
+    const list = all.filter((t) => (ticketFilter.tab === 'all' || ticketStatus(t) === ticketFilter.tab) && (!q || [t.ticket_number, t.problem_detail, (userById(t.reported_by) || {}).full_name, (assetById(t.asset_id) || {}).asset_number].join(' ').toLowerCase().includes(q)));
+    const tabs = [['all', 'Semua'], ['Menunggu', 'Menunggu'], ['Proses', 'Proses'], ['Selesai', 'Selesai'], ['Dibatalkan', 'Dibatalkan']].map(([k, l]) =>
+      `<button data-tab="${k}" class="px-3 py-1.5 rounded-lg text-sm font-medium ${ticketFilter.tab === k ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border'}">${l} <span class="opacity-70">${counts[k]}</span></button>`).join('');
+    const rows = list.map((t) => {
+      const st = ticketStatus(t); const rep = userById(t.reported_by) || {}; const a = assetById(t.asset_id); const h = userById(t.handled_by);
+      return `<tr class="border-b last:border-0 hover:bg-slate-50 align-top">
+        <td class="py-2.5 px-4 font-medium whitespace-nowrap"><a href="#" data-open="${t.id}" class="text-blue-600 hover:underline">${esc(t.ticket_number)}</a><div class="text-xs text-slate-400 font-normal">${fmtDateTime(t.created_at)}</div></td>
+        <td class="py-2.5 px-4 whitespace-nowrap">${esc(rep.full_name || DASH)}<div class="text-xs text-slate-400">${esc(rep.department || '')}</div></td>
+        <td class="py-2.5 px-4 whitespace-nowrap">${a ? `<a href="#" data-asset="${a.id}" class="hover:underline">${esc(a.asset_number)}</a>` : DASH}</td>
+        <td class="py-2.5 px-4 min-w-[14rem]">${esc(t.problem_detail)}${workOf(t.id) && workOf(t.id).work_detail ? `<div class="text-xs text-slate-400 mt-1">✔ ${esc(workOf(t.id).work_detail)}</div>` : ''}</td>
+        <td class="py-2.5 px-4 whitespace-nowrap">${esc(h ? h.full_name : DASH)}</td>
+        <td class="py-2.5 px-4">${st === 'Dibatalkan' ? `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[st]}">${st}</span>` :
+          `<select data-status="${t.id}" class="border rounded-lg px-2 py-1 text-xs font-medium ${TICKET_BADGE[st]}">${options(['Menunggu', 'Proses', 'Selesai'], st)}</select>`}</td>
+        <td class="py-2.5 px-4 text-right"><button data-open="${t.id}" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap">${icon('file-text', 'w-3.5 h-3.5')} Rincian</button></td></tr>`;
+    }).join('');
+    return `
+<div class="flex flex-wrap items-center gap-2 mb-4">${tabs}
+  <div class="relative flex-1 min-w-[12rem] sm:max-w-xs sm:ml-auto"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">${icon('search')}</span>
+  <input id="tQ" value="${esc(ticketFilter.q)}" placeholder="Cari tiket…" class="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm bg-white"></div>
+  ${ARTIFACT ? '' : `<button id="btnExportT" class="${btnGhost}">${icon('download')} Export CSV</button>`}
+</div>
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto"><table class="w-full text-sm">
+<thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">No. Tiket</th><th class="py-2.5 px-4">Pelapor</th><th class="py-2.5 px-4">Aset</th><th class="py-2.5 px-4">Rincian Masalah</th><th class="py-2.5 px-4">Ditangani</th><th class="py-2.5 px-4">Status</th><th class="py-2.5 px-4"></th></tr></thead>
+<tbody>${rows || '<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada tiket.</td></tr>'}</tbody></table></div>`;
+  }
+  function bindAdminTickets() {
+    $$('[data-tab]').forEach((b) => (b.onclick = () => { ticketFilter.tab = b.dataset.tab; render(); }));
+    $('#tQ').oninput = (e) => { ticketFilter.q = e.target.value; render(); const n = $('#tQ'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+    $$('[data-open]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); ticketDetailModal(db.tickets.find((t) => t.id === +a.dataset.open)); }));
+    $$('[data-asset]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); showAssetDetail(+a.dataset.asset); }));
+    $$('[data-status]').forEach((s) => (s.onchange = () => {
+      const t = db.tickets.find((x) => x.id === +s.dataset.status);
+      t.status = s.value; t.handled_by = sessionUserId; t.resolved_at = s.value === 'Selesai' ? new Date().toISOString() : null;
+      db.ticketLogs.push({ ticket_id: t.id, status: s.value, note: 'Status diperbarui oleh admin', changed_by: sessionUserId, changed_at: new Date().toISOString() });
+      save(); render(); toast(`Status ${t.ticket_number} → ${s.value}`);
+    }));
+    if ($('#btnExportT')) $('#btnExportT').onclick = () => {
+      const rows = [['No. Tiket', 'Tanggal', 'Pelapor', 'Departement', 'Aset', 'Rincian Masalah', 'Rincian Pengerjaan', 'Hasil Pengecekan', 'Ditangani', 'Status']];
+      db.tickets.forEach((t) => { const r = userById(t.reported_by) || {}; const w = workOf(t.id) || {}; rows.push([t.ticket_number, fmtDateTime(t.created_at), r.full_name, r.department, (assetById(t.asset_id) || {}).asset_number, t.problem_detail, w.work_detail, w.asset_check, (userById(t.handled_by) || {}).full_name, ticketStatus(t)]); });
+      downloadCsv('tiket_it_demo.csv', rows);
+    };
+  }
+
+  function renderUserTickets() {
+    const me = currentUser();
+    const mine = db.tickets.filter((t) => t.reported_by === me.id).sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const myAssets = assetsOfUser(me.id);
+    return `
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  <div class="bg-white rounded-xl shadow-sm p-5 h-fit">
+    <h2 class="font-semibold text-slate-700 mb-3">Buat Tiket Baru</h2>
+    <form id="newTicket" class="space-y-3">
+      ${field('Aset Bermasalah', `<select name="asset_id" class="${inputCls}">${options(myAssets.map((a) => ({ value: a.id, label: `${a.asset_number} — ${a.device_name || a.category}` })), '', '— Tidak terkait aset —')}</select>`)}
+      ${field('Rincian Masalah', `<textarea name="problem_detail" rows="4" required class="${inputCls}" placeholder="Jelaskan masalahnya, mis. printer tidak bisa print"></textarea>`)}
+      <button class="${btnPrimary} w-full justify-center">${icon('plus')} Kirim Tiket</button>
+    </form>
+  </div>
+  <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-5">
+    <h2 class="font-semibold text-slate-700 mb-3">Tiket Saya</h2>
+    ${mine.length ? `<div class="space-y-3">${mine.map((t) => { const st = ticketStatus(t); const w = workOf(t.id); return `
+      <div class="rounded-xl border border-slate-100 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2"><a href="#" data-open="${t.id}" class="font-medium text-blue-600 hover:underline">${esc(t.ticket_number)}</a>
+        <span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[st]}">${st}</span></div>
+        <p class="text-xs text-slate-400 mt-0.5">${fmtDateTime(t.created_at)}${t.asset_id && assetById(t.asset_id) ? ' · ' + esc(assetById(t.asset_id).asset_number) : ''}</p>
+        <p class="text-sm text-slate-700 mt-2">${esc(t.problem_detail)}</p>
+        ${w && w.work_detail ? `<p class="text-xs text-slate-500 mt-2"><b>Pengerjaan IT:</b> ${esc(w.work_detail)}</p>` : ''}
+        ${st === 'Menunggu' ? `<div class="mt-3 text-right"><button data-cancel="${t.id}" class="text-xs font-medium text-red-600 hover:underline">Batalkan tiket</button></div>` : ''}
+      </div>`; }).join('')}</div>` : '<p class="text-sm text-slate-400 py-6 text-center">Anda belum pernah membuat tiket.</p>'}
+  </div>
+</div>`;
+  }
+  function bindUserTickets() {
+    $('#newTicket').onsubmit = (e) => {
+      e.preventDefault();
+      const d = formData(e.target);
+      const t = { id: nextId(db.tickets), ticket_number: newTicketNumber(), asset_id: d.asset_id ? +d.asset_id : null, reported_by: sessionUserId, handled_by: null, problem_detail: d.problem_detail.trim(), status: 'Menunggu', created_at: new Date().toISOString(), resolved_at: null };
+      db.tickets.push(t);
+      db.ticketLogs.push({ ticket_id: t.id, status: 'Menunggu', note: 'Tiket dibuat oleh user', changed_by: sessionUserId, changed_at: t.created_at });
+      save(); render(); toast(`Tiket ${t.ticket_number} terkirim. Coba login sebagai Admin untuk memprosesnya.`);
+    };
+    $$('[data-open]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); ticketDetailModal(db.tickets.find((t) => t.id === +a.dataset.open)); }));
+    $$('[data-cancel]').forEach((b) => (b.onclick = async () => {
+      const t = db.tickets.find((x) => x.id === +b.dataset.cancel);
+      const reason = await askText('Batalkan tiket ' + t.ticket_number + '?', 'Alasan pembatalan (opsional)');
+      if (reason === null) return;
+      db.cancellations.push({ ticket_id: t.id, reason: reason.trim(), cancelled_by: sessionUserId, cancelled_at: new Date().toISOString() });
+      t.status = 'Selesai'; t.resolved_at = null;
+      db.ticketLogs.push({ ticket_id: t.id, status: 'Selesai', note: 'Dibatalkan oleh user' + (reason.trim() ? ': ' + reason.trim() : ''), changed_by: sessionUserId, changed_at: new Date().toISOString() });
+      save(); render(); toast('Tiket dibatalkan.');
+    }));
+  }
+
+  // Antrian (user)
+  PAGES.queue = {
+    render() {
+      const q = db.tickets.filter((t) => !isCancelled(t) && (t.status === 'Menunggu' || t.status === 'Proses')).sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const me = sessionUserId;
+      return `<div class="max-w-3xl">
+<p class="text-sm text-slate-500 mb-4">Urutan tiket yang sedang menunggu atau sedang dikerjakan tim IT. Tiket Anda ditandai biru.</p>
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto"><table class="w-full text-sm">
+<thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">#</th><th class="py-2.5 px-4">No. Tiket</th><th class="py-2.5 px-4">Departement</th><th class="py-2.5 px-4">Status</th><th class="py-2.5 px-4">Dibuat</th></tr></thead>
+<tbody>${q.map((t, i) => `<tr class="border-b last:border-0 ${t.reported_by === me ? 'bg-blue-50' : ''}">
+  <td class="py-2.5 px-4 font-semibold">${i + 1}</td><td class="py-2.5 px-4">${esc(t.ticket_number)}${t.reported_by === me ? ' <span class="text-xs text-blue-600 font-medium">(Anda)</span>' : ''}</td>
+  <td class="py-2.5 px-4">${esc((userById(t.reported_by) || {}).department || DASH)}</td>
+  <td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[t.status]}">${t.status}</span></td>
+  <td class="py-2.5 px-4 text-slate-500">${fmtDateTime(t.created_at)}</td></tr>`).join('') || '<tr><td colspan="5" class="py-8 text-center text-slate-400">Tidak ada antrian. 🎉</td></tr>'}</tbody></table></div></div>`;
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Aset Saya
+  // ------------------------------------------------------------------
+  let myAssetIdx = 0;
+  PAGES['my-asset'] = {
+    render() {
+      // Komputer (PC/Laptop) ditampilkan paling depan
+      const rank = (a) => (/laptop|pc/i.test(a.category) ? 0 : 1);
+      const list = assetsOfUser(sessionUserId).sort((a, b) => rank(a) - rank(b) || a.id - b.id);
+      if (!list.length) {
+        return `<div class="max-w-xl mx-auto bg-white rounded-xl shadow-sm p-8 text-center">
+          <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-3">${icon('monitor', 'w-6 h-6')}</div>
+          <p class="font-medium text-slate-700">Belum ada aset yang terdaftar atas nama Anda.</p>
+          <p class="text-sm text-slate-500 mt-1">${isAdmin() ? 'Klik "Coba sebagai User" di kanan atas untuk melihat tampilan Aset Saya milik user.' : 'Hubungi tim IT.'}</p></div>`;
+      }
+      myAssetIdx = Math.min(myAssetIdx, list.length - 1);
+      return `<div class="max-w-3xl mx-auto">
+        ${list.length > 1 ? `<div class="flex gap-2 mb-3 overflow-x-auto">${list.map((a, i) => `<button data-idx="${i}" class="px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${i === myAssetIdx ? 'bg-blue-600 text-white' : 'bg-white border text-slate-600'}">${esc(a.device_name || a.asset_number)}</button>`).join('')}</div>` : ''}
+        <div id="myCard">${assetCard(list[myAssetIdx])}</div>
+        ${!isAdmin() ? `<div class="mt-4 text-center"><a href="#/tickets" class="${btnPrimary}">${icon('ticket')} Laporkan Masalah</a></div>` : ''}
+      </div>`;
+    },
+    bind() {
+      bindAssetCard($('#myCard') || document);
+      $$('[data-idx]').forEach((b) => (b.onclick = () => { myAssetIdx = +b.dataset.idx; render(); }));
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Stok Barang
+  // ------------------------------------------------------------------
+  const stockUi = { tab: 'recap', devCat: '' };
+  PAGES.stock = {
+    render() {
+      const month = todayStr().slice(0, 7);
+      const trxMonth = db.stockTransactions.filter((t) => t.trx_date.startsWith(month));
+      const inM = trxMonth.filter((t) => t.type === 'in').reduce((s, t) => s + t.qty, 0);
+      const outM = trxMonth.filter((t) => t.type === 'out').reduce((s, t) => s + t.qty, 0);
+      const cats = db.stockCategories.map((c) => {
+        const trx = db.stockTransactions.filter((t) => t.category_id === c.id);
+        return { ...c, in: trx.filter((t) => t.type === 'in').reduce((s, t) => s + t.qty, 0), out: trx.filter((t) => t.type === 'out').reduce((s, t) => s + t.qty, 0), stock: stockOf(c.id) };
+      });
+      const low = cats.filter((c) => c.stock <= c.min_stock);
+      const dev = deviceStock();
+      const card = (label, val, sub, color) => `<div class="bg-white rounded-xl shadow-sm p-4 border-l-4 ${color}"><p class="text-xs text-slate-500">${label}</p><p class="text-2xl font-bold text-slate-800 mt-1">${val}</p><p class="text-xs text-slate-400">${sub}</p></div>`;
+      const tabs = [['recap', 'Rekap Stok'], ['devices', `Aset IT Stok <span class="ml-1 text-xs rounded-full px-1.5 ${stockUi.tab === 'devices' ? 'bg-white/25' : 'bg-blue-100 text-blue-700'}">${dev.total}</span>`], ['history', 'Riwayat Transaksi'], ['user', 'Diberikan ke User']].map(([k, l]) => `<button data-stab="${k}" class="px-3 py-1.5 rounded-lg text-sm font-medium ${stockUi.tab === k ? 'bg-blue-600 text-white' : 'bg-white border text-slate-600'}">${l}</button>`).join('');
+      const deviceRecap = `
+        <div class="border-t-4 border-slate-100">
+          <div class="flex flex-wrap items-center justify-between gap-2 px-4 pt-4 pb-2">
+            <p class="font-semibold text-slate-700 text-sm">Aset IT per Jenis <span class="ml-1 text-[11px] font-semibold uppercase tracking-wide bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">Otomatis dari menu Aset</span></p>
+            <button data-stab-go="devices" class="text-xs font-medium text-blue-600 hover:underline">Lihat daftar unit →</button>
+          </div>
+          <table class="w-full text-sm"><thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Jenis Aset</th><th class="py-2.5 px-4 text-right">Stok (siap pakai)</th><th class="py-2.5 px-4 text-right">Digunakan</th><th class="py-2.5 px-4 text-right">Tidak Digunakan</th><th class="py-2.5 px-4">Ketersediaan</th></tr></thead>
+          <tbody>${dev.rows.map((r) => `<tr class="border-b last:border-0"><td class="py-2.5 px-4 font-medium"><button data-devcat-go="${esc(r.name)}" class="inline-flex items-center gap-2 hover:text-blue-600">${categoryIcon(r.name, 'w-4 h-4 text-slate-400')} ${esc(r.name)}</button></td>
+            <td class="py-2.5 px-4 text-right font-semibold">${r.stok} unit</td><td class="py-2.5 px-4 text-right text-slate-500">${r.used}</td><td class="py-2.5 px-4 text-right text-slate-500">${r.unused}</td>
+            <td class="py-2.5 px-4">${r.stok > 0 ? '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Tersedia</span>' : '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Habis</span>'}</td></tr>`).join('')}</tbody></table>
+          <p class="px-4 py-3 text-xs text-slate-400">Jumlah ini dihitung langsung dari aset berstatus <b>Stok</b>. Saat aset diberikan ke user (status jadi Digunakan), jumlahnya otomatis berkurang.</p>
+        </div>`;
+      let content = '';
+      if (stockUi.tab === 'recap') {
+        content = `<table class="w-full text-sm"><thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Kategori</th><th class="py-2.5 px-4 text-right">Total Masuk</th><th class="py-2.5 px-4 text-right">Total Keluar</th><th class="py-2.5 px-4 text-right">Stok Sekarang</th><th class="py-2.5 px-4 text-right">Min.</th><th class="py-2.5 px-4">Ketersediaan</th></tr></thead>
+        <tbody>${cats.map((c) => `<tr class="border-b last:border-0"><td class="py-2.5 px-4 font-medium">${esc(c.name)}</td><td class="py-2.5 px-4 text-right text-green-600">+${c.in}</td><td class="py-2.5 px-4 text-right text-red-500">−${c.out}</td>
+          <td class="py-2.5 px-4 text-right font-semibold">${c.stock} ${esc(c.unit)}</td><td class="py-2.5 px-4 text-right text-slate-500">${c.min_stock}</td>
+          <td class="py-2.5 px-4">${c.stock <= 0 ? '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Habis</span>' : c.stock <= c.min_stock ? '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Menipis</span>' : '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Aman</span>'}</td></tr>`).join('')}</tbody></table>${deviceRecap}`;
+      } else if (stockUi.tab === 'devices') {
+        content = `<div class="px-4 py-3 text-sm text-slate-500 bg-blue-50 border-b border-blue-100">Semua aset berstatus <b>Stok</b> di menu Aset (PC, laptop, printer, monitor, aksesoris, tablet, dll.) otomatis tampil di sini. Klik <b>Serahkan ke User</b> untuk memberikan unit ke karyawan — statusnya berubah jadi Digunakan dan unit keluar dari stok.
+          <div class="mt-2 flex flex-wrap gap-1.5">${[{ name: '', stok: dev.total, label: 'Semua' }, ...dev.rows.filter((r) => r.stok)].map((r) => `<button data-devcat="${esc(r.name)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${stockUi.devCat === r.name ? 'bg-blue-600 text-white' : 'bg-white border text-slate-600'}">${esc(r.label || r.name)} ${r.stok}</button>`).join('')}</div></div>
+        <table class="w-full text-sm"><thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">No. Aset</th><th class="py-2.5 px-4">Jenis</th><th class="py-2.5 px-4">Spesifikasi</th><th class="py-2.5 px-4">Serial Number</th><th class="py-2.5 px-4">Lokasi</th><th class="py-2.5 px-4">Tgl Pembelian</th><th class="py-2.5 px-4"></th></tr></thead>
+        <tbody>${dev.items.map((a) => `<tr class="border-b last:border-0 hover:bg-slate-50">
+          <td class="py-2.5 px-4 whitespace-nowrap"><a href="#" data-dev-detail="${a.id}" class="font-medium text-blue-600 hover:underline">${esc(a.asset_number)}</a><div class="text-xs text-slate-400">${esc(a.device_name || '')}</div></td>
+          <td class="py-2.5 px-4 whitespace-nowrap">${esc(a.category)}</td>
+          <td class="py-2.5 px-4 text-xs text-slate-600 min-w-[12rem]">${esc([a.processor, a.ram, a.storage].filter(Boolean).join(' / ') || DASH)}</td>
+          <td class="py-2.5 px-4 whitespace-nowrap">${esc(a.serial_number || DASH)}</td><td class="py-2.5 px-4 whitespace-nowrap">${esc(a.location || DASH)}</td>
+          <td class="py-2.5 px-4 whitespace-nowrap">${a.purchase_date ? fmtDate(a.purchase_date) : DASH}</td>
+          <td class="py-2.5 px-4 text-right"><button data-handover="${a.id}" class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap">${icon('users', 'w-3.5 h-3.5')} Serahkan ke User</button></td></tr>`).join('') || '<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada aset berstatus Stok.</td></tr>'}</tbody></table>`;
+      } else if (stockUi.tab === 'history') {
+        const trx = [...db.stockTransactions].sort((a, b) => b.trx_date.localeCompare(a.trx_date) || b.id - a.id);
+        content = `<table class="w-full text-sm"><thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Tanggal</th><th class="py-2.5 px-4">Jenis</th><th class="py-2.5 px-4">Kategori</th><th class="py-2.5 px-4">Nama/Merk</th><th class="py-2.5 px-4 text-right">Jumlah</th><th class="py-2.5 px-4">Diberikan kepada</th><th class="py-2.5 px-4">Catatan</th><th class="py-2.5 px-4"></th></tr></thead>
+        <tbody>${trx.map((t) => { const c = db.stockCategories.find((x) => x.id === t.category_id) || {}; return `<tr class="border-b last:border-0">
+          <td class="py-2.5 px-4 whitespace-nowrap">${fmtDate(t.trx_date)}</td>
+          <td class="py-2.5 px-4">${t.type === 'in' ? '<span class="text-green-600 font-medium">Masuk</span>' : '<span class="text-red-500 font-medium">Keluar</span>'}</td>
+          <td class="py-2.5 px-4">${esc(c.name || DASH)}</td><td class="py-2.5 px-4">${esc(t.item_name || DASH)}</td>
+          <td class="py-2.5 px-4 text-right font-medium">${t.qty} ${esc(c.unit || '')}</td>
+          <td class="py-2.5 px-4">${t.type === 'out' ? esc(t.recipient_name) + `<div class="text-xs text-slate-400">${esc(t.recipient_department || '')}</div>` : DASH}</td>
+          <td class="py-2.5 px-4 text-slate-500">${esc(t.note || '')}</td>
+          <td class="py-2.5 px-4 text-right"><button data-trx-del="${t.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">${icon('trash')}</button></td></tr>`; }).join('')}</tbody></table>`;
+      } else {
+        const outs = db.stockTransactions.filter((t) => t.type === 'out');
+        const byUser = {};
+        outs.forEach((t) => { const k = t.recipient_name || '-'; (byUser[k] = byUser[k] || { dept: t.recipient_department, items: {} }); const c = (db.stockCategories.find((x) => x.id === t.category_id) || {}).name || '-'; byUser[k].items[c] = (byUser[k].items[c] || 0) + t.qty; });
+        content = `<table class="w-full text-sm"><thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Nama</th><th class="py-2.5 px-4">Departement</th><th class="py-2.5 px-4">Barang Diterima</th></tr></thead>
+        <tbody>${Object.entries(byUser).map(([n, v]) => `<tr class="border-b last:border-0"><td class="py-2.5 px-4 font-medium">${esc(n)}</td><td class="py-2.5 px-4">${esc(v.dept || DASH)}</td><td class="py-2.5 px-4">${Object.entries(v.items).map(([c, q]) => `<span class="inline-block bg-slate-100 rounded px-2 py-0.5 text-xs mr-1 mb-1">${esc(c)} × ${q}</span>`).join('')}</td></tr>`).join('') || '<tr><td colspan="3" class="py-8 text-center text-slate-400">Belum ada barang keluar.</td></tr>'}</tbody></table>`;
+      }
+      return `
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+  <button data-stab-go="devices" class="text-left">${card('Aset IT Stok', dev.total + ' unit', esc(dev.rows.filter((r) => r.stok).map((r) => `${r.name}: ${r.stok}`).join(' · ') || 'tidak ada'), 'border-indigo-500')}</button>
+  ${card('Jenis Barang', cats.length, 'kategori terdaftar', 'border-blue-500')}
+  ${card('Masuk Bulan Ini', inM, 'unit', 'border-green-500')}
+  ${card('Keluar Bulan Ini', outM, 'unit', 'border-red-400')}
+  ${card('Stok Menipis', low.length, low.length ? esc(low.map((l) => l.name).join(', ')) : 'semua aman', 'border-amber-500')}
+</div>
+<div class="flex flex-wrap items-center gap-2 mb-4">${tabs}
+  <div class="flex gap-2 sm:ml-auto">
+    <button id="btnCatStock" class="${btnGhost}">${icon('tag')} Kategori</button>
+    <button id="btnIn" class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-sm font-medium">${icon('plus')} Barang Masuk</button>
+    <button id="btnOut" class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 text-sm font-medium">${icon('minus')} Barang Keluar</button>
+  </div>
+</div>
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto">${content}</div>`;
+    },
+    bind() {
+      $$('[data-stab]').forEach((b) => (b.onclick = () => { stockUi.tab = b.dataset.stab; render(); }));
+      $$('[data-devcat-go]').forEach((b) => (b.onclick = () => { stockUi.devCat = b.dataset.devcatGo; stockUi.tab = 'devices'; render(); }));
+      $$('[data-devcat]').forEach((b) => (b.onclick = () => { stockUi.devCat = b.dataset.devcat; render(); }));
+      $$('[data-stab-go]').forEach((b) => (b.onclick = () => { stockUi.tab = b.dataset.stabGo; stockUi.devCat = ''; render(); }));
+      $$('[data-dev-detail]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); showAssetDetail(+a.dataset.devDetail); }));
+      $$('[data-handover]').forEach((b) => (b.onclick = () => {
+        const a = assetById(+b.dataset.handover);
+        const users = db.users.filter((u) => u.is_active).sort((x, y) => x.full_name.localeCompare(y.full_name));
+        openModal('Serahkan ke User', `<form id="hoForm" class="space-y-3">
+          <div class="rounded-lg bg-slate-50 p-3 text-sm"><p class="font-medium text-slate-700">${esc(a.asset_number)}</p><p class="text-slate-500">${esc(a.device_name || a.category)} · ${esc([a.processor, a.ram].filter(Boolean).join(' / '))}</p></div>
+          ${field('Diberikan kepada', `<select name="user_id" required class="${inputCls}">${options(users.map((u) => ({ value: u.id, label: `${u.full_name} (${u.department || '-'})` })), '', '— Pilih user —')}</select>`)}
+          ${field('Lokasi baru <span class="text-xs text-slate-400">(opsional)</span>', `<input name="location" value="${esc(a.location || '')}" class="${inputCls}">`)}
+          <p class="text-xs text-slate-500">Status aset akan berubah menjadi <b>Digunakan</b>; Departement &amp; email ikut data user.</p>
+          <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Serahkan</button></div></form>`, {
+          onMount(root) {
+            $('#hoForm', root).onsubmit = (e) => {
+              e.preventDefault();
+              const d = formData(e.target);
+              const u = userById(+d.user_id);
+              db.assetOwners = db.assetOwners.filter((o) => o.asset_id !== a.id);
+              db.assetOwners.push({ asset_id: a.id, user_id: u.id });
+              Object.assign(a, { status: 'Digunakan', department: u.department || '', owner_email: u.email || '', location: d.location.trim() });
+              if (/laptop|pc/i.test(a.category)) Object.assign(a, { pc_username: u.pc_username || '', pc_password: u.pc_password || '' });
+              save(); closeModal(); render(); toast(`${a.asset_number} diserahkan ke ${u.full_name}.`);
+            };
+          },
+        });
+      }));
+      $$('[data-trx-del]').forEach((b) => (b.onclick = async () => {
+        const t = db.stockTransactions.find((x) => x.id === +b.dataset.trxDel);
+        if (t.type === 'in' && stockOf(t.category_id) - t.qty < 0) { toast('Tidak bisa dihapus: stok akan menjadi minus.', false); return; }
+        if (!(await ask('Hapus transaksi ini?'))) return;
+        db.stockTransactions = db.stockTransactions.filter((x) => x !== t); save(); render(); toast('Transaksi dihapus.');
+      }));
+      const trxForm = (type) => {
+        const users = db.users.filter((u) => u.is_active).sort((a, b) => a.full_name.localeCompare(b.full_name));
+        openModal(type === 'in' ? 'Barang Masuk' : 'Barang Keluar', `<form id="trxForm" class="space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            ${field('Kategori', `<select name="category_id" id="trxCat" class="${inputCls}">${options(db.stockCategories.map((c) => ({ value: c.id, label: `${c.name} (stok: ${stockOf(c.id)} ${c.unit})` })), '')}</select>`)}
+            ${field(type === 'in' ? 'Tanggal Masuk' : 'Tanggal Keluar', `<input type="date" name="trx_date" value="${todayStr()}" required class="${inputCls}">`)}
+            ${field('Jumlah', `<input type="number" name="qty" min="1" value="1" required class="${inputCls}">`)}
+            ${field('Nama / Merk <span class="text-xs text-slate-400">(opsional)</span>', `<input name="item_name" class="${inputCls}">`)}
+            ${type === 'out' ? field('Diberikan kepada', `<select name="user_id" required class="${inputCls}">${options(users.map((u) => ({ value: u.id, label: `${u.full_name} (${u.department || '-'})` })), '', '— Pilih user —')}</select>`, 'sm:col-span-2') : ''}
+            ${field('Catatan <span class="text-xs text-slate-400">(opsional)</span>', `<input name="note" class="${inputCls}">`, 'sm:col-span-2')}
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
+          wide: true,
+          onMount(root) {
+            $('#trxForm', root).onsubmit = (e) => {
+              e.preventDefault();
+              const d = formData(e.target);
+              const qty = parseInt(d.qty, 10);
+              const catId = +d.category_id;
+              if (!(qty > 0)) { toast('Jumlah harus lebih dari 0.', false); return; }
+              if (type === 'out' && qty > stockOf(catId)) { toast(`Stok tidak cukup (tersedia ${stockOf(catId)}).`, false); return; }
+              const u = userById(+d.user_id);
+              db.stockTransactions.push({ id: nextId(db.stockTransactions), category_id: catId, type, qty, trx_date: d.trx_date, item_name: d.item_name.trim(), user_id: u ? u.id : null, recipient_name: u ? u.full_name : '', recipient_department: u ? u.department : '', note: d.note.trim(), created_at: new Date().toISOString() });
+              save(); closeModal(); render(); toast(type === 'in' ? 'Barang masuk dicatat.' : 'Barang keluar dicatat.');
+            };
+          },
+        });
+      };
+      $('#btnIn').onclick = () => trxForm('in');
+      $('#btnOut').onclick = () => trxForm('out');
+      $('#btnCatStock').onclick = () => {
+        const list = () => db.stockCategories.map((c) => `<tr class="border-b last:border-0"><td class="py-2 pr-3">${esc(c.name)}</td><td class="py-2 pr-3">${esc(c.unit)}</td><td class="py-2 pr-3">${c.min_stock}</td>
+          <td class="py-2 text-right"><button data-scdel="${c.id}" class="p-1 text-slate-400 hover:text-red-600">${icon('trash')}</button></td></tr>`).join('');
+        openModal('Kategori Stok', `<table class="w-full text-sm mb-4"><thead><tr class="text-left text-slate-500 border-b"><th class="py-2 pr-3">Nama</th><th class="py-2 pr-3">Satuan</th><th class="py-2 pr-3">Min. Stok</th><th></th></tr></thead><tbody id="scList">${list()}</tbody></table>
+          <form id="scForm" class="grid grid-cols-12 gap-2 items-end">
+            <div class="col-span-5">${field('Nama', `<input name="name" required class="${inputCls}">`)}</div>
+            <div class="col-span-3">${field('Satuan', `<input name="unit" value="pcs" required class="${inputCls}">`)}</div>
+            <div class="col-span-2">${field('Min.', `<input name="min_stock" type="number" min="0" value="0" class="${inputCls}">`)}</div>
+            <div class="col-span-2"><button class="${btnPrimary} w-full justify-center px-2">${icon('plus')}</button></div></form>`, {
+          onMount(root) {
+            const bindDel = () => $$('[data-scdel]', root).forEach((b) => (b.onclick = () => {
+              const id = +b.dataset.scdel;
+              if (db.stockTransactions.some((t) => t.category_id === id)) { toast('Kategori masih punya transaksi.', false); return; }
+              db.stockCategories = db.stockCategories.filter((c) => c.id !== id); save(); $('#scList', root).innerHTML = list(); bindDel();
+            }));
+            bindDel();
+            $('#scForm', root).onsubmit = (e) => {
+              e.preventDefault();
+              const d = formData(e.target);
+              if (db.stockCategories.some((c) => c.name.toLowerCase() === d.name.trim().toLowerCase())) { toast('Kategori sudah ada.', false); return; }
+              db.stockCategories.push({ id: nextId(db.stockCategories), name: d.name.trim(), unit: d.unit.trim(), min_stock: +d.min_stock || 0 });
+              save(); e.target.reset(); $('#scList', root).innerHTML = list(); bindDel();
+            };
+            root.addEventListener('click', (e) => { if (e.target === root || e.target.closest('[data-close]')) render(); });
+          },
+        });
+      };
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Pengaturan Sistem
+  // ------------------------------------------------------------------
+  PAGES.settings = {
+    render() {
+      return `<div class="max-w-2xl"><p class="text-sm text-slate-500 mb-4">Ubah nama sistem, logo, dan prefix Nomor Aset. Di versi demo, pengaturan hanya tersimpan di browser Anda.</p>
+<form id="setForm" class="bg-white rounded-xl shadow-sm divide-y">
+  <div class="p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Pratinjau</p>
+    <div class="flex items-center gap-3 bg-slate-800 rounded-lg px-4 h-16 max-w-xs">${logoHtml('w-8 h-8 rounded-lg', 'bg-brand-500 text-white font-bold text-sm')}<span id="pvName" class="font-semibold text-white truncate">${esc(appName())}</span></div></div>
+  <div class="p-5">${field('Nama Sistem', `<input name="app_name" id="setName" maxlength="60" value="${esc(db.settings.app_name)}" class="${inputCls}">`)}</div>
+  <div class="p-5">${field('Prefix Nomor Aset', `<input name="asset_prefix" maxlength="10" value="${esc(prefix())}" class="${inputCls} w-40 uppercase">`)}<p class="text-xs text-slate-400 mt-1">Contoh hasil: ${esc(prefix())}/IT/PC/001. Nomor aset lama tidak berubah.</p></div>
+  <div class="p-5">${field('Logo', `<input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif" class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium">`)}
+    <p class="text-xs text-slate-400 mt-1">PNG/JPG/WEBP/GIF, maks. 300 KB (batas versi demo).</p>
+    ${db.settings.logo ? '<label class="inline-flex items-center gap-2 text-sm text-red-600 mt-2"><input type="checkbox" name="remove_logo" value="1"> Hapus logo</label>' : ''}</div>
+  <div class="p-5 flex flex-wrap justify-between gap-3">
+    <button type="button" id="btnFullReset" class="text-sm text-slate-500 hover:text-red-600">Reset semua data demo</button>
+    <button class="${btnPrimary}">${icon('check')} Simpan</button></div>
+</form></div>`;
+    },
+    bind() {
+      $('#setName').oninput = (e) => ($('#pvName').textContent = e.target.value.trim() || 'IT Asset Management');
+      $('#btnFullReset').onclick = () => $('#btnResetDemo').click();
+      $('#setForm').onsubmit = (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const finish = (logo) => {
+          db.settings.app_name = f.app_name.value.trim().slice(0, 60);
+          db.settings.asset_prefix = f.asset_prefix.value.replace(/[^A-Za-z0-9_-]/g, '').toUpperCase().slice(0, 10) || 'AST';
+          if (logo !== undefined) db.settings.logo = logo;
+          save(); render(); toast('Pengaturan disimpan.');
+        };
+        if (f.remove_logo && f.remove_logo.checked) return finish('');
+        const file = f.logo.files[0];
+        if (!file) return finish(undefined);
+        if (file.size > 300 * 1024) { toast('Logo terlalu besar (maks. 300 KB di demo).', false); return; }
+        const rd = new FileReader();
+        rd.onload = () => finish(rd.result);
+        rd.readAsDataURL(file);
+      };
+    },
+  };
+
+  // ------------------------------------------------------------------
+  render();
+})();
