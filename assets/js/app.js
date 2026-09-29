@@ -352,7 +352,7 @@
     const items = nav.map(([r, ic, label]) => {
       const active = r === current;
       return `<a href="#/${r}" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-700/60 hover:text-white'}">
-        <span class="w-5 flex justify-center">${icon(ic, 'w-5 h-5')}</span><span class="sidebar-label flex-1">${esc(label)}</span>${r === 'stock' ? '<span class="sidebar-label text-[10px] font-bold uppercase bg-amber-400 text-amber-950 rounded px-1.5 py-0.5">Baru</span>' : ''}</a>`;
+        <span class="w-5 flex justify-center">${icon(ic, 'w-5 h-5')}</span><span class="sidebar-label flex-1">${esc(label)}</span></a>`;
     }).join('');
     return `
 <div class="flex h-screen overflow-hidden">
