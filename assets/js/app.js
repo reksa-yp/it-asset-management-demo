@@ -30,6 +30,7 @@
     return clone(window.DEMO_SEED);
   }
   db = loadDb();
+  db.upgradeLogs = db.upgradeLogs || [];
   const save = () => store.set(DB_KEY, JSON.stringify(db));
   function resetDemo() {
     store.del(DB_KEY);
@@ -92,6 +93,8 @@
     pc: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 6h6"/><path d="M9 10h6"/><path d="M15 17h.01"/>',
     mouse: '<rect x="5" y="2" width="14" height="20" rx="7"/><path d="M12 6v4"/>',
     tablet: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M12 18h.01"/>',
+    up: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
   };
   function icon(name, cls = 'w-4 h-4') {
     return `<svg class="shrink-0 ${cls}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.pc}</svg>`;
@@ -167,6 +170,18 @@
     return { rows, items, total };
   }
 
+  // Stok per barang (kategori + nama/merk) dari Barang Masuk dikurangi Barang Keluar
+  const normItem = (v) => String(v || '').trim().toLowerCase();
+  function itemStockOf(catId, item, exceptId) {
+    return db.stockTransactions.filter((t) => t.category_id === +catId && normItem(t.item_name) === normItem(item) && t.id !== exceptId)
+      .reduce((s, t) => s + (t.type === 'in' ? t.qty : -t.qty), 0);
+  }
+  // Barang yang pernah dicatat lewat Barang Masuk untuk 1 kategori (penulisan nama seperti saat masuk)
+  function itemsIn(catId) {
+    const m = new Map();
+    db.stockTransactions.filter((t) => t.type === 'in' && t.category_id === +catId).forEach((t) => { if (!m.has(normItem(t.item_name))) m.set(normItem(t.item_name), (t.item_name || '').trim()); });
+    return [...m.values()];
+  }
   function stockOf(catId) {
     return db.stockTransactions.filter((t) => t.category_id === catId).reduce((s, t) => s + (t.type === 'in' ? t.qty : -t.qty), 0);
   }
@@ -376,8 +391,21 @@
         <button id="btnSwitchRole" class="hidden sm:inline-flex items-center gap-1 text-xs font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-full px-3 py-1">
           ${icon('refresh', 'w-3.5 h-3.5')} Coba sebagai ${isAdmin() ? 'User' : 'Admin'}
         </button>
-        <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-semibold">${esc(u.full_name[0].toUpperCase())}</div>
-        <span class="hidden md:inline text-slate-600">${esc(u.full_name)}</span>
+        <div class="relative" id="userMenuWrap">
+          <button type="button" id="btnUserMenu" aria-haspopup="true" aria-expanded="false" class="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-slate-100 transition">
+            <span class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-semibold">${esc(u.full_name[0].toUpperCase())}</span>
+            <span class="hidden md:inline text-slate-600 max-w-[12rem] truncate">${esc(u.full_name)}</span>
+            <svg id="userMenuChevron" class="w-4 h-4 text-slate-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div id="userMenu" role="menu" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-40">
+            <div class="px-4 pb-2 mb-1 border-b border-slate-100">
+              <p class="font-semibold text-slate-800 truncate">${esc(u.full_name)}</p>
+              <p class="text-xs text-slate-500 truncate">${esc(u.username)} &middot; ${u.role === 'admin' ? 'Admin' : 'User'}</p>
+            </div>
+            <button type="button" id="btnSwitchRole2" class="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm text-brand-700 hover:bg-brand-50">${icon('refresh')} Coba sebagai ${isAdmin() ? 'User' : 'Admin'}</button>
+            <button type="button" id="btnLogoutMenu" role="menuitem" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">${icon('logout')} Logout</button>
+          </div>
+        </div>
       </div>
     </header>
     <main class="flex-1 overflow-y-auto p-4 lg:p-6">${content}
@@ -421,6 +449,13 @@
       toast('Data demo sudah dikembalikan ke kondisi awal.');
     };
     $('#btnSwitchRole').onclick = () => login(isAdmin() ? db.users.find((u) => u.username === 'user').id : db.users.find((u) => u.username === 'admin').id);
+    // Menu akun (klik ikon user di pojok kanan atas): nama, role, Logout
+    const um = $('#userMenu'), umBtn = $('#btnUserMenu'), umWrap = $('#userMenuWrap');
+    const setUm = (open) => { if (!um.isConnected) return; um.classList.toggle('hidden', !open); $('#userMenuChevron').classList.toggle('rotate-180', open); umBtn.setAttribute('aria-expanded', String(open)); };
+    umBtn.onclick = (e) => { e.stopPropagation(); setUm(um.classList.contains('hidden')); };
+    document.onclick = (e) => { if (umWrap && umWrap.isConnected && !umWrap.contains(e.target)) setUm(false); };
+    $('#btnLogoutMenu').onclick = async () => { setUm(false); if (await ask('Yakin ingin keluar?', 'Logout')) logout(); };
+    $('#btnSwitchRole2').onclick = () => $('#btnSwitchRole').click();
   }
 
   // ------------------------------------------------------------------
@@ -539,7 +574,9 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       <td class="py-2 px-4">${esc(u.asset.category)}</td><td class="py-2 px-4">${esc(u.asset.department || DASH)}</td>
       <td class="py-2 px-4">${esc(u.ticket.ticket_number)}</td><td class="py-2 px-4 text-slate-500 max-w-xs truncate" title="${esc(u.text)}">${esc(u.text)}</td>
       <td class="py-2 px-4 text-slate-500 whitespace-nowrap">${fmtDate(u.ticket.created_at)}</td>
-      <td class="py-2 px-4 text-right"><button data-ack="${u.asset.id}:${u.ticket.id}" class="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap">${icon('check', 'w-3.5 h-3.5')} Tandai Selesai</button></td>
+      <td class="py-2 px-4 text-right"><div class="flex justify-end items-center gap-2">
+        <button data-upgrade="${u.asset.id}:${u.ticket.id}" class="inline-flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap">${icon('up', 'w-3.5 h-3.5')} Proses Upgrade</button>
+        <button data-ack="${u.asset.id}:${u.ticket.id}" title="Tandai selesai tanpa mencatat apa yang di-upgrade" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap">${icon('check', 'w-3.5 h-3.5')} Tandai Selesai</button></div></td>
     </tr>`).join('')}</tbody></table>
   </div>
 </div>` : ''}
@@ -559,6 +596,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     bind() {
       $('#btnBreakdown').onclick = () => $('#breakdownPanel').classList.toggle('hidden');
       const bu = $('#btnUpgrade'); if (bu) bu.onclick = () => $('#upgradePanel').classList.toggle('hidden');
+      $$('[data-upgrade]').forEach((b) => (b.onclick = () => { const [a, t] = b.dataset.upgrade.split(':').map(Number); upgradeForm(a, t); }));
       $$('[data-ack]').forEach((b) => (b.onclick = async () => {
         if (!(await ask('Tandai aset ini sudah selesai di-upgrade?'))) return;
         const [a, t] = b.dataset.ack.split(':').map(Number);
@@ -587,6 +625,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     <span class="px-3 py-1 rounded-full text-xs font-semibold ${ASSET_STATUS_BADGE[a.status]}">${esc(a.status)}</span>
   </div>
   <div class="flex justify-end gap-2 px-4 pt-3">
+    ${isAdmin() ? `<button data-upgrade-asset="${a.id}" class="inline-flex items-center gap-1 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium">${icon('up', 'w-3.5 h-3.5')} Catat Upgrade</button>` : ''}
     ${ARTIFACT ? '' : `<button data-print-asset="${a.id}" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium">${icon('printer', 'w-3.5 h-3.5')} Print</button>`}
   </div>
   <div class="px-4 pt-3"><div class="flex gap-1 overflow-x-auto">
@@ -602,7 +641,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     <div data-panel="tHardware" class="hidden">${rows([['Processor', esc(a.processor)], ['Motherboard / Brand', esc(a.motherboard_brand)], ['RAM', esc(a.ram)], ['Storage', esc(a.storage)], ['Monitor', esc(a.monitor_info)], ['Printer', esc(a.printer_info)], ['Aksesoris', esc(a.accessories)]])}</div>
     <div data-panel="tNetwork" class="hidden">${rows([['IP Address', esc(a.ip_address)], ['Hostname', esc(a.hostname)]])}</div>
     <div data-panel="tSystem" class="hidden">${rows([['Sistem Operasi', esc(a.os_name)], ['Status Lisensi OS', a.os_status === 'Original' ? 'Original' : 'Belum Original'], ['Software Terpasang', sw ? `<div class="space-y-1">${sw}</div>` : ''], ['Tanggal Input', fmtDate(a.created_at)]])}</div>
-    <div data-panel="tHistory" class="hidden">${history.length ? `<div class="space-y-3">${history.map((t) => { const w = workOf(t.id); const st = ticketStatus(t); return `
+    <div data-panel="tHistory" class="hidden">${upgradeHistoryHtml(a.id)}${upgradesOf(a.id).length ? '<p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Riwayat Tiket</p>' : ''}${history.length ? `<div class="space-y-3">${history.map((t) => { const w = workOf(t.id); const st = ticketStatus(t); return `
       <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
         <div class="flex items-center justify-between gap-2 mb-1"><span class="text-sm font-medium text-slate-700">${esc(t.ticket_number)}</span>
         <span class="text-xs px-2 py-0.5 rounded-full ${TICKET_BADGE[st]}">${st}</span></div>
@@ -620,11 +659,15 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       $$('[data-panel]', root).forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== b.dataset.tab));
     }));
     $$('[data-print-asset]', root).forEach((b) => (b.onclick = () => printAsset(+b.dataset.printAsset)));
+    $$('[data-upgrade-asset]', root).forEach((b) => (b.onclick = () => upgradeForm(+b.dataset.upgradeAsset, null)));
   }
-  function showAssetDetail(id) {
+  function showAssetDetail(id, startTab) {
     const a = assetById(id);
     if (!a) return;
-    openModal('Detail Aset', assetCard(a), { wide: true, onMount: bindAssetCard });
+    openModal('Detail Aset', assetCard(a), { wide: true, onMount(root) {
+      bindAssetCard(root);
+      if (startTab) { const b = $(`.asset-tab-btn[data-tab="${startTab}"]`, root); if (b) b.click(); }
+    } });
   }
   function printAsset(id) {
     const a = assetById(id);
@@ -638,9 +681,142 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       ${row('Nomor Aset', a.asset_number)}${row('Jenis', a.category)}${row('Nama Perangkat', a.device_name)}${row('Pengguna', ownersOf(a.id).map((o) => o.full_name).join(', '))}
       ${row('Departement', a.department)}${row('Lokasi', a.location)}${row('IP Address', a.ip_address)}${row('Hostname', a.hostname)}
       ${row('Processor', a.processor)}${row('RAM', a.ram)}${row('Storage', a.storage)}${row('OS', a.os_name)}${row('Serial Number', a.serial_number)}${row('Status', a.status)}
-      </table><p style="color:#999;font-size:11px;margin-top:16px">Dokumen ini dibuat otomatis oleh ${esc(appName())} (demo).<br>${esc(COPYRIGHT)}</p>
+      </table>
+      ${upgradesOf(a.id).length ? `<div style="font-weight:bold;margin:16px 0 6px">Riwayat Upgrade</div><table style="width:100%;border-collapse:collapse;border:1px solid #ddd;font-size:12px">
+        ${upgradesOf(a.id).map((l) => `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;width:22%;vertical-align:top">${fmtDate(l.date)}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #eee">${l.items.map((i) => `${esc(i.label)}: ${i.before ? esc(i.before) + ' &rarr; ' : ''}<b>${esc(i.after)}</b>`).join('<br>')}${l.notes ? `<div style="color:#666">${esc(l.notes)}</div>` : ''}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #eee;width:22%;vertical-align:top">${esc(l.by)}</td></tr>`).join('')}</table>` : ''}<p style="color:#999;font-size:11px;margin-top:16px">Dokumen ini dibuat otomatis oleh ${esc(appName())} (demo).<br>${esc(COPYRIGHT)}</p>
       <script>window.onload=function(){window.print()}<\/script></body></html>`);
     w.document.close();
+  }
+
+  // ------------------------------------------------------------------
+  // Upgrade Aset: isi apa yang di-upgrade, data aset ikut berubah, riwayat tercatat
+  // ------------------------------------------------------------------
+  const UPGRADE_FIELDS = [
+    { key: 'ram', label: 'RAM' }, { key: 'storage', label: 'Storage' }, { key: 'processor', label: 'Processor' },
+    { key: 'motherboard_brand', label: 'Motherboard / Brand' }, { key: 'monitor_info', label: 'Monitor' },
+    { key: 'printer_info', label: 'Printer' }, { key: 'accessories', label: 'Aksesoris' }, { key: 'os_name', label: 'Sistem Operasi' },
+    { key: 'os_status', label: 'Status Lisensi OS', options: ['Original', 'Belum Original'] },
+    { key: '__software', label: 'Software baru (ditambahkan ke daftar software)' },
+    { key: '__other', label: 'Lainnya, mis. PSU (dicatat di riwayat)' },
+  ];
+  const upgradesOf = (assetId) => db.upgradeLogs.filter((l) => l.asset_id === assetId).sort((x, y) => y.date.localeCompare(x.date) || y.id - x.id);
+  function upgradeHistoryHtml(assetId, highlightId) {
+    const logs = upgradesOf(assetId);
+    if (!logs.length) return '';
+    return `<p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Riwayat Upgrade</p><div class="space-y-3 mb-5">${logs.map((l) => {
+      const t = l.ticket_id ? db.tickets.find((x) => x.id === l.ticket_id) : null;
+      return `<div class="rounded-xl border border-brand-200 bg-brand-50/60 p-3 ${l.id === highlightId ? 'ring-2 ring-brand-300' : ''}">
+        <div class="flex items-center justify-between gap-2 mb-1 flex-wrap"><span class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700">${icon('up')} Upgrade</span><span class="text-xs text-slate-500">${fmtDate(l.date)}</span></div>
+        <ul class="text-xs text-slate-700 space-y-0.5 my-2">${l.items.map((i) => `<li><b>${esc(i.label)}:</b> ${i.before ? `<span class="text-slate-400 line-through">${esc(i.before)}</span> &rarr; ` : ''}<span class="font-semibold text-slate-800">${esc(i.after)}</span></li>`).join('')}</ul>
+        ${l.notes ? `<p class="text-xs text-slate-600"><b>Keterangan:</b> ${esc(l.notes)}</p>` : ''}
+        <p class="text-xs text-slate-400 mt-1">Oleh ${esc(l.by)} &middot; ${t ? 'dari tiket ' + esc(t.ticket_number) : 'tanpa tiket'}</p></div>`;
+    }).join('')}</div>`;
+  }
+  // Saran isian dari catatan tiket, mis. "RAM 4 GB ... harus upgrade ke 8 GB" -> RAM: 8 GB
+  function suggestUpgrade(text) {
+    const t = ' ' + String(text || '').toLowerCase() + ' ';
+    const m = String(text || '').match(/\bke\s+([^.,;\n]+)/i);
+    const after = m ? m[1].trim() : '';
+    const rows = [];
+    if (/\bram\b|memori/.test(t)) { const g = after.match(/(\d+)\s*gb/i); rows.push({ key: 'ram', after: g ? g[1] + ' GB' : after }); }
+    if (/\bssd\b|\bhdd\b|storage|hardisk|nvme/.test(t)) { let v = after; if (v && !/ssd|hdd|nvme/i.test(v) && t.includes('ssd')) v = 'SSD ' + v; rows.push({ key: 'storage', after: v.replace(/\s*gb\b/i, ' GB') }); }
+    if (/windows|lisensi|\bos\b/.test(t)) {
+      const w = after.match(/windows[^.,;\n]*/i); if (w) rows.push({ key: 'os_name', after: w[0].trim() });
+      if (/original|lisensi/.test(t)) rows.push({ key: 'os_status', after: 'Original' });
+    }
+    if (/\bpsu\b|power supply/.test(t)) rows.push({ key: '__other', label: 'PSU', after: '' });
+    return rows;
+  }
+  function upgradeForm(assetId, ticketId) {
+    const a = assetById(assetId);
+    if (!a) return;
+    const t = ticketId ? db.tickets.find((x) => x.id === ticketId) : null;
+    const w = t ? (workOf(t.id) || {}) : {};
+    const note = t ? ([w.asset_check, w.work_detail, t.problem_detail].find((x) => String(x || '').toLowerCase().includes('harus upgrade')) || w.asset_check || t.problem_detail) : '';
+    const seed = (note && suggestUpgrade(note)) || [];
+    if (!seed.length) seed.push({ key: 'ram', after: '' });
+    const cur = (k) => (k.startsWith('__') ? '' : String(a[k] || ''));
+    const body = `<form id="upForm" class="space-y-4">
+      <div class="rounded-xl bg-slate-50 border border-slate-100 p-3 text-sm"><p class="font-semibold text-slate-800">${esc(a.device_name || a.asset_number)} <span class="font-normal text-slate-400">${esc(a.asset_number)}</span></p>
+        <p class="text-xs text-slate-500">${esc([a.processor, a.ram, a.storage, a.os_name].filter(Boolean).join(' / '))}</p></div>
+      ${t ? `<div class="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700"><b>${esc(t.ticket_number)}</b> &middot; ${esc(note)}</div>` : ''}
+      <div><div class="flex items-center justify-between mb-2"><p class="text-sm font-semibold text-slate-700">Yang di-upgrade</p>
+        <button type="button" id="upAdd" class="text-xs font-medium text-blue-600 inline-flex items-center gap-1">${icon('plus', 'w-3.5 h-3.5')} Tambah komponen</button></div>
+        <div class="hidden sm:grid grid-cols-12 gap-2 text-[11px] uppercase tracking-wider text-slate-400 font-semibold px-1 mb-1"><span class="col-span-4">Komponen</span><span class="col-span-3">Sebelum</span><span class="col-span-4">Sesudah</span></div>
+        <div id="upRows" class="space-y-2"></div>
+        <p class="text-xs text-slate-400 mt-2">"Sebelum" diambil dari data aset. Nilai "Sesudah" menggantikan data aset saat disimpan.</p></div>
+      <div class="grid sm:grid-cols-2 gap-3">
+        ${field('Tanggal Upgrade', `<input type="date" id="upDate" value="${todayStr()}" class="${inputCls}">`)}
+        ${field('Dikerjakan oleh', `<input value="${esc(currentUser().full_name)}" readonly class="${inputCls} bg-slate-50 text-slate-500">`)}
+      </div>
+      ${field('Keterangan', `<textarea id="upNotes" rows="2" class="${inputCls}" placeholder="Contoh: RAM lama disimpan di gudang IT sebagai cadangan"></textarea>`)}
+      ${t ? `<label class="flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" id="upDone" checked class="mt-0.5"><span>Tandai tiket <b>${esc(t.ticket_number)}</b> selesai di-upgrade (hilang dari daftar Dashboard)</span></label>` : ''}
+      <p id="upErr" class="hidden text-sm bg-red-50 text-red-700 rounded-lg px-3 py-2"></p>
+      <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan Upgrade</button></div>
+    </form>`;
+    openModal(t ? 'Proses Upgrade Aset' : 'Catat Upgrade Aset', body, {
+      wide: true,
+      onMount(root) {
+        const rows = $('#upRows', root);
+        const addRow = (init = {}) => {
+          const div = document.createElement('div');
+          div.className = 'up-row grid grid-cols-12 gap-2 items-start rounded-lg sm:rounded-none bg-slate-50 sm:bg-transparent p-2 sm:p-0';
+          div.innerHTML = `<div class="col-span-12 sm:col-span-4 space-y-1"><select data-k class="${inputCls}">${UPGRADE_FIELDS.map((f) => `<option value="${f.key}">${esc(f.label)}</option>`).join('')}</select>
+              <input data-l placeholder="Nama komponen, mis. PSU" class="${inputCls}"></div>
+            <div class="col-span-12 sm:col-span-3" data-b></div><div class="col-span-10 sm:col-span-4" data-a></div>
+            <div class="col-span-2 sm:col-span-1 flex justify-end"><button type="button" data-del class="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">${icon('x')}</button></div>`;
+          rows.appendChild(div);
+          const sel = $('[data-k]', div);
+          if (init.key) sel.value = init.key;
+          const sync = (first) => {
+            const f = UPGRADE_FIELDS.find((x) => x.key === sel.value);
+            const other = f.key === '__other', sw = f.key === '__software';
+            $('[data-l]', div).style.display = other ? '' : 'none';
+            if (first && other) $('[data-l]', div).value = init.label || '';
+            $('[data-b]', div).innerHTML = sw ? `<select data-sws class="${inputCls}"><option>Original</option><option>Belum Original</option></select>`
+              : `<input data-bv class="${inputCls} ${other ? '' : 'bg-slate-50 text-slate-500'}" ${other ? 'placeholder="Kondisi sebelum"' : 'readonly'} value="${esc(other ? '' : cur(f.key) || '-')}">`;
+            const prev = first ? init.after || '' : '';
+            $('[data-a]', div).innerHTML = f.options ? `<select data-av class="${inputCls}">${options(f.options, prev || f.options[0])}</select>`
+              : `<input data-av class="${inputCls}" placeholder="${sw ? 'Nama software baru' : 'Nilai baru'}" value="${esc(prev)}">`;
+          };
+          sel.onchange = () => sync(false);
+          sync(true);
+          $('[data-del]', div).onclick = () => { if (rows.children.length > 1) div.remove(); };
+        };
+        seed.forEach(addRow);
+        $('#upAdd', root).onclick = () => addRow({ key: 'storage' });
+        $('#upForm', root).onsubmit = (e) => {
+          e.preventDefault();
+          const err = (m) => { const el = $('#upErr', root); el.textContent = m; el.classList.remove('hidden'); };
+          const items = [];
+          const seen = {};
+          for (const div of $$('.up-row', root)) {
+            const key = $('[data-k]', div).value, f = UPGRADE_FIELDS.find((x) => x.key === key);
+            const after = $('[data-av]', div).value.trim();
+            let label = f.label, before = cur(key);
+            if (key === '__other') { label = $('[data-l]', div).value.trim(); before = $('[data-bv]', div).value.trim(); if (!label) return err('Isi nama komponen untuk baris "Lainnya".'); }
+            if (key === '__software') { label = 'Software'; before = ''; }
+            if (!after) return err(`Isi nilai "Sesudah" untuk ${label}.`);
+            if (after === before) return err(`Nilai baru ${label} sama dengan sebelumnya.`);
+            if (!key.startsWith('__')) { if (seen[key]) return err(`${label} dipilih dua kali.`); seen[key] = 1; }
+            items.push({ key, label, before, after, sws: key === '__software' ? $('[data-sws]', div).value : '' });
+          }
+          items.forEach((i) => {
+            if (i.key === '__software') a.software = [...(a.software || []), { name: i.after, serial: '', status: i.sws }];
+            else if (!i.key.startsWith('__')) a[i.key] = i.after;
+          });
+          const log = { id: nextId(db.upgradeLogs), asset_id: a.id, ticket_id: t ? t.id : null, date: $('#upDate', root).value || todayStr(),
+            notes: $('#upNotes', root).value.trim(), by: currentUser().full_name, items: items.map(({ key, label, before, after }) => ({ key, label, before, after })) };
+          db.upgradeLogs.push(log);
+          if (t && $('#upDone', root).checked && !db.upgradeAck.some((k) => k.asset_id === a.id && k.ticket_id === t.id)) db.upgradeAck.push({ asset_id: a.id, ticket_id: t.id });
+          save(); closeModal(); render();
+          toast(`Upgrade ${a.device_name || a.asset_number} tersimpan. Data aset sudah diperbarui.`);
+          showAssetDetail(a.id, 'tHistory');
+        };
+      },
+    });
   }
 
   // ------------------------------------------------------------------
@@ -680,6 +856,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
         <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${ASSET_STATUS_BADGE[a.status]}">${esc(a.status)}</span></td>
         <td class="py-2 px-3 whitespace-nowrap text-right">
           <button data-edit="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600" title="Edit">${icon('pencil')}</button>
+          <button data-upg="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-brand-50 hover:text-brand-600" title="Catat Upgrade">${icon('up')}</button>
           ${ARTIFACT ? '' : `<button data-print="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100" title="Print">${icon('printer')}</button>`}
           <button data-del="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600" title="Hapus">${icon('trash')}</button>
         </td></tr>`;
@@ -707,6 +884,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
   ${sel('fDept', db.departments, assetFilter.dept, 'Semua Departement')}
   ${sel('fStatus', Object.keys(ASSET_STATUS), assetFilter.status, 'Semua Status')}
   ${ARTIFACT ? '' : `<button id="btnExport" class="${btnGhost}">${icon('download')} Export CSV</button>`}
+  <button id="btnImportAU" class="${btnGhost}">${icon('upload')} Import Aset + User</button>
   <button id="btnAddAsset" class="${btnPrimary}">${icon('plus')} Tambah Aset</button>
 </div>
 <div class="bg-white rounded-xl shadow-sm">
@@ -725,6 +903,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       const bindRows = () => {
         $$('[data-detail]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); showAssetDetail(+a.dataset.detail); }));
         $$('[data-edit]').forEach((b) => (b.onclick = () => assetForm(+b.dataset.edit)));
+        $$('[data-upg]').forEach((b) => (b.onclick = () => upgradeForm(+b.dataset.upg, null)));
         $$('[data-print]').forEach((b) => (b.onclick = () => printAsset(+b.dataset.print)));
         $$('[data-del]').forEach((b) => (b.onclick = async () => {
           const a = assetById(+b.dataset.del);
@@ -741,6 +920,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       $('#fDept').onchange = (e) => { assetFilter.dept = e.target.value; assetFilter.page = 1; refresh(); };
       $('#fStatus').onchange = (e) => { assetFilter.status = e.target.value; assetFilter.page = 1; refresh(); };
       $('#btnAddAsset').onclick = () => assetForm(null);
+      $('#btnImportAU').onclick = () => importAssetUserModal();
       if ($('#btnExport')) $('#btnExport').onclick = () => {
         const rows = [['No. Aset', 'Jenis', 'Nama Perangkat', 'Pengguna', 'Departement', 'Email', 'IP', 'Hostname', 'Lokasi', 'Processor', 'RAM', 'Storage', 'OS', 'Status OS', 'Serial Number', 'Tanggal Pembelian', 'Status']];
         filteredAssets().forEach((a) => rows.push([a.asset_number, a.category, a.device_name, ownersOf(a.id).map((o) => o.full_name).join(', '), a.department, a.owner_email, a.ip_address, a.hostname, a.location, a.processor, a.ram, a.storage, a.os_name, a.os_status, a.serial_number, a.purchase_date, a.status]));
@@ -837,6 +1017,175 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
             if (/pc|laptop/i.test(rec.category)) { rec.pc_username = u.pc_username; rec.pc_password = u.pc_password; }
           }
           save(); closeModal(); render(); toast(id ? 'Aset diperbarui.' : 'Aset ditambahkan.');
+        };
+      },
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Import Excel Aset + User sekaligus (SheetJS dimuat saat dibutuhkan)
+  // ------------------------------------------------------------------
+  const AU_COLS = [
+    ['Nama Lengkap', 'full_name', 'user'], ['Username', 'username', 'user'], ['Email', 'email', 'user'], ['Departement', 'department', 'user'],
+    ['Password', 'password', 'user'], ['Username PC', 'pc_username', 'user'], ['Password PC', 'pc_password', 'user'], ['Role', 'role', 'user'], ['Status User', 'user_status', 'user'],
+    ['ID Aset', 'asset_number', 'asset'], ['Kategori', 'category', 'asset'], ['Nama Perangkat', 'device_name', 'asset'], ['Status Aset', 'status', 'asset'],
+    ['Lokasi', 'location', 'asset'], ['Serial Number', 'serial_number', 'asset'], ['Tanggal Pembelian', 'purchase_date', 'asset'], ['IP Address', 'ip_address', 'asset'],
+    ['Hostname', 'hostname', 'asset'], ['Processor', 'processor', 'asset'], ['RAM', 'ram', 'asset'], ['Penyimpanan', 'storage', 'asset'],
+    ['Motherboard/Brand', 'motherboard_brand', 'asset'], ['Monitor', 'monitor_info', 'asset'], ['Printer', 'printer_info', 'asset'], ['Aksesoris', 'accessories', 'asset'],
+    ['OS', 'os_name', 'asset'], ['Status OS', 'os_status', 'asset'], ['Software', 'software', 'asset'], ['Serial Number Software', 'software_serial', 'asset'],
+    ['Status Software', 'software_status', 'asset'], ['ID Tablet', 'tablet_id', 'asset'], ['Kondisi Tablet', 'tablet_condition', 'asset'],
+  ];
+  let xlsxPromise = null;
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    if (!xlsxPromise) {
+      xlsxPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload = () => resolve(window.XLSX);
+        s.onerror = () => { xlsxPromise = null; reject(new Error('Library Excel gagal dimuat. Periksa koneksi internet.')); };
+        document.head.appendChild(s);
+      });
+    }
+    return xlsxPromise;
+  }
+  async function downloadAssetUserTemplate() {
+    const X = await loadXlsx();
+    const ex = [
+      ['Rina Kartika', 'rina.k', 'rina.k@contoh.co.id', 'HRD', 'Rina#2026', 'rina.pc', 'PcRina123', 'user', 'Aktif', '', 'Laptop', 'ASUS VivoBook 14', '', 'Lantai 2', 'SNDEMO9001', '2025-03-14', '192.168.10.201', 'LT-HRD-01', 'Intel Core i5-1235U', '8 GB', 'SSD 512 GB', 'ASUS VivoBook 14', '', '', 'Mouse Logitech B100', 'Windows 11 Pro', 'Original', 'Microsoft Office 2021; Anydesk', 'XXXX-7788; -', 'Original; Original', '', ''],
+      ['Doni Saputra', 'doni', 'doni@contoh.co.id', 'Produksi', 'Doni#2026', '', '', 'user', 'Aktif', '', 'Tablet', 'Samsung Galaxy Tab A9+', '', 'Line 2', 'SNDEMO9002', '2025-01-10', '192.168.10.202', '', '', '4 GB', '64 GB', 'Samsung Galaxy Tab A9+', '', '', '', 'Android 14', 'Original', '', '', '', 'TAB-DEMO-01', 'Bagus'],
+      ['', '', '', 'IT', '', '', '', '', '', '', 'Monitor', 'Dell E2222H', 'Stok', 'Gudang IT', 'SNDEMO9003', '2025-06-02', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+    ];
+    const ws = X.utils.aoa_to_sheet([AU_COLS.map((c) => c[0]), ...ex]);
+    ws['!cols'] = AU_COLS.map((c) => ({ wch: Math.max(12, c[0].length + 4) }));
+    const help = X.utils.aoa_to_sheet([
+      ['Petunjuk Import Aset + User'], [''],
+      ['1. Satu baris = satu aset beserta satu penggunanya. Kolom A-I = data USER, kolom J dst. = data ASET.'],
+      ['2. USER dicocokkan lewat Username. User baru wajib diisi Nama Lengkap, Username, dan Password.'],
+      ['3. ASET dicocokkan lewat ID Aset (kalau kosong: lewat Serial Number). ID Aset kosong -> nomor dibuat otomatis (' + prefix() + '/Departement/Jenis/Urutan).'],
+      ['4. Kategori harus sama dengan daftar Kategori Aset: ' + db.categories.map((c) => c.name).join(', ') + '.'],
+      ['5. Status Aset: Digunakan / Stok / Tidak Digunakan. Kosong -> Digunakan jika ada user, Stok jika tanpa user.'],
+      ['6. Satu aset dipakai beberapa user: tulis beberapa baris dengan ID Aset yang sama.'],
+      ['7. Software lebih dari satu dipisah titik koma (;). Tanggal: 2025-03-14 atau 14/03/2025.'],
+      ['8. Kolom kosong tidak menghapus data lama. Baris hanya berisi user -> hanya user yang disimpan.'],
+    ]);
+    help['!cols'] = [{ wch: 120 }];
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, 'Aset & User');
+    X.utils.book_append_sheet(wb, help, 'Petunjuk');
+    X.writeFile(wb, 'template_aset_user.xlsx');
+  }
+  function parseDateCell(v) {
+    const s = String(v || '').trim();
+    if (!s) return null;
+    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${pad(+m[2])}-${pad(+m[3])}`;
+    m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/); if (m) return `${m[3]}-${pad(+m[2])}-${pad(+m[1])}`;
+    return false;
+  }
+  function importAssetUserRows(rows) {
+    const out = { usersNew: 0, usersUpd: 0, assetsNew: 0, assetsUpd: 0, skipped: 0, notes: [] };
+    const header = (rows[0] || []).map((h) => String(h || '').trim().toLowerCase());
+    const idx = {};
+    AU_COLS.forEach(([title, key]) => { const i = header.indexOf(title.toLowerCase()); if (i >= 0) idx[key] = i; });
+    if (idx.username === undefined && idx.full_name === undefined) throw new Error('Kolom "Username"/"Nama Lengkap" tidak ditemukan. Pakai Template Aset + User.');
+    const userCache = {}, ownersByAsset = {}, statusGiven = {}, touched = {};
+    rows.slice(1).forEach((row, n) => {
+      const r = n + 2, g = (k) => (idx[k] === undefined ? '' : String(row[idx[k]] == null ? '' : row[idx[k]]).trim());
+      const hasUser = g('username') || g('full_name'), hasAsset = g('category') || g('asset_number');
+      if (!hasUser && !hasAsset) return;
+      let user = null;
+      if (hasUser) {
+        const key = g('username') ? 'u:' + g('username').toLowerCase() : 'n:' + g('full_name').toLowerCase();
+        user = userCache[key] || (g('username') ? db.users.find((u) => u.username.toLowerCase() === g('username').toLowerCase()) : db.users.find((u) => u.full_name.toLowerCase() === g('full_name').toLowerCase())) || null;
+        const role = ['admin', 'user'].includes(g('role').toLowerCase()) ? g('role').toLowerCase() : null;
+        const st = g('user_status').toLowerCase(), active = /^(nonaktif|tidak aktif|inactive|0|no)$/.test(st) ? 0 : (st ? 1 : null);
+        if (user && !userCache[key]) {
+          ['full_name', 'email', 'department', 'pc_username', 'pc_password'].forEach((k) => { if (g(k)) user[k] = g(k); });
+          if (role) user.role = role; if (active !== null) user.is_active = active; if (g('password')) user.demo_password = g('password');
+          out.usersUpd++;
+        } else if (!user) {
+          if (!g('full_name') || !g('username') || !g('password')) out.notes.push(`Baris ${r}: user baru ${g('full_name') || g('username')} dilewati (wajib isi Nama Lengkap, Username, Password).`);
+          else {
+            user = { id: nextId(db.users), full_name: g('full_name'), username: g('username'), email: g('email'), department: g('department'), role: role || 'user', is_active: active === null ? 1 : active,
+              pc_username: g('pc_username'), pc_password: g('pc_password'), demo_password: g('password'), created_at: new Date().toISOString() };
+            db.users.push(user); out.usersNew++;
+            if (user.department && !db.departments.includes(user.department)) db.departments.push(user.department);
+          }
+        }
+        if (user) userCache[key] = user;
+      }
+      if (!hasAsset) return;
+      let a = g('asset_number') ? db.assets.find((x) => x.asset_number === g('asset_number')) : null;
+      if (!a && !g('asset_number') && g('serial_number')) a = db.assets.find((x) => x.serial_number === g('serial_number')) || null;
+      const cat = g('category') ? db.categories.find((c) => c.name.toLowerCase() === g('category').toLowerCase()) : null;
+      if (g('category') && !cat) { out.notes.push(`Baris ${r}: Kategori "${g('category')}" tidak dikenal, aset dilewati.`); out.skipped++; return; }
+      if (!a && !cat) { out.notes.push(`Baris ${r}: aset baru wajib diisi Kategori, aset dilewati.`); out.skipped++; return; }
+      const dept = g('department') || (user ? user.department : '') || '';
+      if (!a) {
+        const no = g('asset_number') || nextAssetNumber(cat.name, dept, g('location'), null);
+        if (!no) { out.notes.push(`Baris ${r}: Tablet tanpa ID Aset wajib diisi Lokasi (Line), aset dilewati.`); out.skipped++; return; }
+        a = { id: nextId(db.assets), asset_number: no, category: cat.name, device_name: '', department: user ? '' : dept, owner_email: '', ip_address: '', hostname: '', os_name: '', os_status: 'Belum Original',
+          motherboard_brand: '', processor: '', ram: '', storage: '', serial_number: '', purchase_date: '', location: '', status: user ? 'Digunakan' : 'Stok', printer_info: '', monitor_info: '', accessories: '',
+          pc_username: '', pc_password: '', software: [], tablet_id: '', tablet_condition: '', created_at: new Date().toISOString() };
+        db.assets.push(a); out.assetsNew++;
+      } else if (!touched[a.id]) out.assetsUpd++;
+      touched[a.id] = true;
+      if (cat) a.category = cat.name;
+      ['device_name', 'location', 'serial_number', 'ip_address', 'hostname', 'processor', 'ram', 'storage', 'motherboard_brand', 'monitor_info', 'printer_info', 'accessories', 'os_name'].forEach((k) => { if (g(k)) a[k] = g(k); });
+      const stMap = { digunakan: 'Digunakan', stok: 'Stok', 'tidak digunakan': 'Tidak Digunakan' };
+      if (g('status')) { if (stMap[g('status').toLowerCase()]) { a.status = stMap[g('status').toLowerCase()]; statusGiven[a.id] = true; } else out.notes.push(`Baris ${r}: Status Aset "${g('status')}" tidak dikenal, diabaikan.`); }
+      if (g('os_status')) a.os_status = g('os_status').toLowerCase() === 'original' ? 'Original' : 'Belum Original';
+      const pd = parseDateCell(g('purchase_date'));
+      if (pd === false) out.notes.push(`Baris ${r}: Tanggal Pembelian tidak dikenali, diabaikan.`); else if (pd) a.purchase_date = pd;
+      if (g('software')) {
+        const names = g('software').split(';').map((s) => s.trim()), ser = g('software_serial').split(';').map((s) => s.trim()), sts = g('software_status').split(';').map((s) => s.trim());
+        a.software = names.map((nm, i) => ({ name: nm, serial: ser[i] && ser[i] !== '-' ? ser[i] : '', status: (sts[i] || '').toLowerCase() === 'original' ? 'Original' : 'Belum Original' })).filter((s) => s.name);
+      }
+      if (/tablet/i.test(a.category)) {
+        if (g('tablet_id')) a.tablet_id = g('tablet_id');
+        const c = g('tablet_condition').toLowerCase();
+        if (c) a.tablet_condition = /rusak|damaged|bad/.test(c) ? 'Rusak' : 'Bagus'; else a.tablet_condition = a.tablet_condition || 'Bagus';
+      }
+      if (user) (ownersByAsset[a.id] = ownersByAsset[a.id] || []).push(user.id);
+    });
+    Object.entries(ownersByAsset).forEach(([aid, uids]) => {
+      const a = assetById(+aid);
+      db.assetOwners = db.assetOwners.filter((o) => o.asset_id !== a.id);
+      [...new Set(uids)].forEach((uid) => db.assetOwners.push({ asset_id: a.id, user_id: uid }));
+      const first = ownersOf(a.id)[0];
+      if (first) Object.assign(a, { department: first.department || '', owner_email: first.email || '' }, /pc|laptop/i.test(a.category) ? { pc_username: first.pc_username || '', pc_password: first.pc_password || '' } : {});
+      if (!statusGiven[a.id] && a.status === 'Stok') a.status = 'Digunakan';
+    });
+    return out;
+  }
+  function importAssetUserModal() {
+    openModal('Import Aset + User sekaligus', `<div class="space-y-4 text-sm">
+      <p class="text-slate-600">Satu baris Excel berisi <b>1 aset beserta penggunanya</b>, lengkap seperti form Tambah Aset &amp; Tambah User. User baru ikut dibuat otomatis dan langsung terhubung ke asetnya.</p>
+      ${ARTIFACT ? '' : `<button type="button" id="auTpl" class="${btnGhost}">${icon('download')} Download Template Aset + User</button>`}
+      <div class="rounded-lg border border-dashed border-slate-300 p-4">
+        <label class="block text-sm font-medium text-slate-600 mb-2">Upload file Excel yang sudah diisi</label>
+        <input type="file" id="auFile" accept=".xlsx,.xls" class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium">
+      </div>
+      <p id="auMsg" class="hidden rounded-lg px-3 py-2"></p>
+      <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Tutup</button><button type="button" id="auGo" class="${btnPrimary}">${icon('upload')} Import</button></div>
+    </div>`, {
+      onMount(root) {
+        const msg = (ok, html) => { const el = $('#auMsg', root); el.className = 'rounded-lg px-3 py-2 ' + (ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'); el.innerHTML = html; };
+        if ($('#auTpl', root)) $('#auTpl', root).onclick = () => downloadAssetUserTemplate().catch((e) => msg(false, esc(e.message)));
+        $('#auGo', root).onclick = async () => {
+          const file = $('#auFile', root).files[0];
+          if (!file) { msg(false, 'Pilih file Excel dulu.'); return; }
+          try {
+            const X = await loadXlsx();
+            const wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+            const rows = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, dateNF: 'yyyy-mm-dd', defval: '' });
+            const res = importAssetUserRows(rows);
+            save(); render(); importAssetUserModal();
+            const again = $('#modal');
+            if (again) { const el = $('#auMsg', again); el.className = 'rounded-lg px-3 py-2 bg-green-50 text-green-800';
+              el.innerHTML = `<b>Import selesai:</b> ${res.assetsNew} aset baru, ${res.assetsUpd} aset diperbarui, ${res.usersNew} user baru, ${res.usersUpd} user diperbarui, ${res.skipped} baris aset dilewati.`
+                + (res.notes.length ? `<ul class="list-disc pl-5 mt-1 text-xs text-amber-800">${res.notes.slice(0, 8).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''); }
+          } catch (e) { msg(false, esc(e.message || 'File tidak bisa dibaca.')); }
         };
       },
     });
@@ -1285,34 +1634,66 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       }));
       $$('[data-trx-del]').forEach((b) => (b.onclick = async () => {
         const t = db.stockTransactions.find((x) => x.id === +b.dataset.trxDel);
-        if (t.type === 'in' && stockOf(t.category_id) - t.qty < 0) { toast('Tidak bisa dihapus: stok akan menjadi minus.', false); return; }
+        if (t.type === 'in' && (stockOf(t.category_id) - t.qty < 0 || itemStockOf(t.category_id, t.item_name, t.id) < 0)) { toast(`Tidak bisa dihapus: "${t.item_name || 'barang ini'}" sudah sebagian diserahkan ke user. Hapus dulu Barang Keluar-nya.`, false); return; }
         if (!(await ask('Hapus transaksi ini?'))) return;
         db.stockTransactions = db.stockTransactions.filter((x) => x !== t); save(); render(); toast('Transaksi dihapus.');
       }));
       const trxForm = (type) => {
         const users = db.users.filter((u) => u.is_active).sort((a, b) => a.full_name.localeCompare(b.full_name));
+        // Barang Keluar: kategori yang punya stok dipilih lebih dulu
+        const firstCat = type === 'out' ? (db.stockCategories.find((c) => stockOf(c.id) > 0) || db.stockCategories[0] || {}).id : '';
         openModal(type === 'in' ? 'Barang Masuk' : 'Barang Keluar', `<form id="trxForm" class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            ${field('Kategori', `<select name="category_id" id="trxCat" class="${inputCls}">${options(db.stockCategories.map((c) => ({ value: c.id, label: `${c.name} (stok: ${stockOf(c.id)} ${c.unit})` })), '')}</select>`)}
+            ${field('Kategori', `<select name="category_id" id="trxCat" class="${inputCls}">${options(db.stockCategories.map((c) => ({ value: c.id, label: `${c.name} (stok: ${stockOf(c.id)} ${c.unit})` })), firstCat)}</select>`)}
             ${field(type === 'in' ? 'Tanggal Masuk' : 'Tanggal Keluar', `<input type="date" name="trx_date" value="${todayStr()}" required class="${inputCls}">`)}
+            ${type === 'in'
+              ? field('Nama / Merk <span class="text-xs text-slate-400">(opsional)</span>', `<input name="item_name" list="trxItemList" autocomplete="off" placeholder="mis. Logitech B100" class="${inputCls}"><datalist id="trxItemList"></datalist><p class="text-xs text-slate-400 mt-1">Nama yang pernah dipakai muncul sebagai saran.</p>`, 'sm:col-span-2')
+              : field('Pilih barang (dari Barang Masuk)', `<select name="item_name" id="trxPick" class="${inputCls}"></select><p id="trxPickInfo" class="text-xs text-amber-700 mt-1"></p>`, 'sm:col-span-2')}
             ${field('Jumlah', `<input type="number" name="qty" min="1" value="1" required class="${inputCls}">`)}
-            ${field('Nama / Merk <span class="text-xs text-slate-400">(opsional)</span>', `<input name="item_name" class="${inputCls}">`)}
-            ${type === 'out' ? field('Diberikan kepada', `<select name="user_id" required class="${inputCls}">${options(users.map((u) => ({ value: u.id, label: `${u.full_name} (${u.department || '-'})` })), '', '— Pilih user —')}</select>`, 'sm:col-span-2') : ''}
+            ${type === 'out' ? field('Diberikan kepada', `<select name="user_id" required class="${inputCls}">${options(users.map((u) => ({ value: u.id, label: `${u.full_name} (${u.department || '-'})` })), '', '— Pilih user —')}</select>`) : '<div></div>'}
             ${field('Catatan <span class="text-xs text-slate-400">(opsional)</span>', `<input name="note" class="${inputCls}">`, 'sm:col-span-2')}
           </div>
+          <p id="trxErr" class="hidden text-sm bg-red-50 text-red-700 rounded-lg px-3 py-2"></p>
           <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
           wide: true,
           onMount(root) {
+            const cat = $('#trxCat', root);
+            const refreshItems = () => {
+              const c = db.stockCategories.find((x) => x.id === +cat.value) || {};
+              if (type === 'in') {
+                $('#trxItemList', root).innerHTML = itemsIn(cat.value).filter(Boolean).map((i) => `<option value="${esc(i)}"></option>`).join('');
+                return;
+              }
+              const list = itemsIn(cat.value).map((i) => ({ item: i, s: itemStockOf(cat.value, i) })).filter((r) => r.s > 0);
+              const pick = $('#trxPick', root);
+              pick.innerHTML = list.length ? list.map((r) => `<option value="${esc(r.item)}">${esc(r.item || '(tanpa nama barang)')} — tersedia ${r.s} ${esc(c.unit || '')}</option>`).join('')
+                : '<option value="">Tidak ada barang dengan stok</option>';
+              pick.disabled = !list.length;
+              $('#trxPickInfo', root).textContent = list.length ? '' : 'Belum ada stok barang untuk kategori ini. Catat Barang Masuk dulu.';
+            };
+            cat.onchange = refreshItems;
+            refreshItems();
             $('#trxForm', root).onsubmit = (e) => {
               e.preventDefault();
+              const err = (m) => { const el = $('#trxErr', root); el.textContent = m; el.classList.remove('hidden'); };
               const d = formData(e.target);
               const qty = parseInt(d.qty, 10);
               const catId = +d.category_id;
-              if (!(qty > 0)) { toast('Jumlah harus lebih dari 0.', false); return; }
-              if (type === 'out' && qty > stockOf(catId)) { toast(`Stok tidak cukup (tersedia ${stockOf(catId)}).`, false); return; }
+              if (!(qty > 0)) return err('Jumlah harus lebih dari 0.');
+              let item = (d.item_name || '').trim();
+              if (type === 'out') {
+                if ($('#trxPick', root).disabled) return err('Tidak ada barang yang bisa dikeluarkan untuk kategori ini. Catat Barang Masuk dulu.');
+                item = $('#trxPick', root).value;
+                const s = itemStockOf(catId, item);
+                if (qty > s) return err(`Stok "${item || '(tanpa nama barang)'}" tidak cukup. Tersedia hanya ${s}.`);
+                if (!d.user_id) return err('Pilih user yang menerima barang.');
+              } else {
+                const same = itemsIn(catId).find((i) => normItem(i) === normItem(item));
+                if (same !== undefined) item = same;   // samakan penulisan dengan nama yang sudah ada
+              }
               const u = userById(+d.user_id);
-              db.stockTransactions.push({ id: nextId(db.stockTransactions), category_id: catId, type, qty, trx_date: d.trx_date, item_name: d.item_name.trim(), user_id: u ? u.id : null, recipient_name: u ? u.full_name : '', recipient_department: u ? u.department : '', note: d.note.trim(), created_at: new Date().toISOString() });
-              save(); closeModal(); render(); toast(type === 'in' ? 'Barang masuk dicatat.' : 'Barang keluar dicatat.');
+              db.stockTransactions.push({ id: nextId(db.stockTransactions), category_id: catId, type, qty, trx_date: d.trx_date, item_name: item, user_id: u ? u.id : null, recipient_name: u ? u.full_name : '', recipient_department: u ? u.department : '', note: d.note.trim(), created_at: new Date().toISOString() });
+              save(); closeModal(); render(); toast(type === 'in' ? 'Barang masuk dicatat.' : `${qty} ${item || 'barang'} diserahkan ke ${u.full_name}.`);
             };
           },
         });

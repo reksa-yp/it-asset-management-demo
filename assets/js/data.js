@@ -222,6 +222,7 @@
     { id: 4, name: 'Kabel LAN', unit: 'roll', min_stock: 1 },
     { id: 5, name: 'Flashdisk', unit: 'pcs', min_stock: 3 },
     { id: 6, name: 'Tinta Epson 003', unit: 'botol', min_stock: 4 },
+    { id: 7, name: 'RAM', unit: 'pcs', min_stock: 1 },
   ];
   const stockTransactions = [];
   let sid = 1;
@@ -232,14 +233,18 @@
   addTrx(4, 'in', 3, 60, { item_name: 'Belden Cat6 305m' });
   addTrx(5, 'in', 15, 45, { item_name: 'Sandisk 32 GB' });
   addTrx(6, 'in', 12, 30, { item_name: 'Epson 003 Black' });
-  const outs = [[1, 3], [1, 4], [2, 2], [3, 2], [3, 2], [5, 4], [6, 5], [6, 4], [1, 2], [2, 1], [5, 3], [4, 1]];
+  addTrx(7, 'in', 5, 25, { item_name: 'DDR4 8GB Kingston' });
+  addTrx(7, 'in', 2, 25, { item_name: 'DDR4 4GB' });
+  // Barang Keluar selalu memilih barang dari Barang Masuk -> nama barang sama
+  const itemOfCat = { 1: 'Logitech B100', 2: 'Logitech K120', 3: 'HP 136A', 4: 'Belden Cat6 305m', 5: 'Sandisk 32 GB', 6: 'Epson 003 Black', 7: 'DDR4 8GB Kingston' };
+  const outs = [[1, 3], [1, 4], [2, 2], [3, 2], [3, 2], [5, 4], [6, 5], [6, 4], [1, 2], [2, 1], [5, 3], [4, 1], [7, 2]];
   outs.forEach(([cat, qty], i) => {
     const u = usersNoAdmin[i % usersNoAdmin.length];
-    addTrx(cat, 'out', qty, 40 - i * 3, { user_id: u.id, recipient_name: u.full_name, recipient_department: u.department, note: i % 3 === 0 ? 'Pengganti yang rusak' : '' });
+    addTrx(cat, 'out', qty, 40 - i * 3, { item_name: itemOfCat[cat], user_id: u.id, recipient_name: u.full_name, recipient_department: u.department, note: i % 3 === 0 ? 'Pengganti yang rusak' : '' });
   });
 
   window.DEMO_SEED = {
-    version: 4,
+    version: 5,
     settings: { app_name: 'IT Asset Management', asset_prefix: 'AST' },
     departments,
     categories,
@@ -251,6 +256,11 @@
     workDetails,
     cancellations,
     upgradeAck: [],
+    // Contoh riwayat upgrade (fitur Proses Upgrade Aset)
+    upgradeLogs: [
+      { id: 1, asset_id: demoLaptop.id, ticket_id: null, date: dateOnly(daysAgo(120)), notes: 'HDD lama bad sector, diganti SSD. Data dipindah ke SSD baru.', by: 'Admin Demo',
+        items: [{ key: 'storage', label: 'Storage', before: 'HDD 500 GB', after: 'SSD 256 GB' }] },
+    ],
     stockCategories,
     stockTransactions,
   };
