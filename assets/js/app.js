@@ -290,7 +290,7 @@
   // ------------------------------------------------------------------
   const ADMIN_NAV = [
     ['dashboard', 'dashboard', 'Dashboard'],
-    ['assets', 'laptop', 'Penambahan Aset IT'],
+    ['assets', 'laptop', 'Aset'],
     ['categories', 'tag', 'Kategori Aset'],
     ['users', 'users', 'Management User'],
     ['tickets', 'ticket', 'Ticketing IT'],
