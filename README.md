@@ -4,6 +4,9 @@
 
 🔗 **Live demo:** <https://reksa-yp.github.io/it-asset-management-demo/>
 
+⬇️ **Unduh aplikasi (open source, lisensi MIT):** <https://reksa-yp.github.io/it-asset-management-demo/unduh.html>
+— atau langsung file ZIP-nya: [`download/asker-it-asset.zip`](download/asker-it-asset.zip) (PHP + MySQL, siap dipasang di XAMPP).
+
 > Demo ini berjalan 100% di browser dengan **data contoh fiktif**. Silakan tambah, ubah, atau hapus data —
 > perubahan hanya tersimpan di browser Anda dan bisa dikembalikan lewat tombol **Reset data demo**.
 

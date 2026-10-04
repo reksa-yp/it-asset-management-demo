@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASKER IT Asset — Unduh Aplikasi</title>
+<meta name="description" content="ASKER IT Asset: aplikasi open source manajemen aset IT dan helpdesk berbasis PHP & MySQL. Unduh gratis atau coba demonya.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23274fe6'/%3E%3Ctext x='32' y='42' font-family='Arial' font-weight='bold' font-size='28' fill='white' text-anchor='middle'%3EIT%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { theme: { extend: { colors: { brand: {
+    50:'#eef4ff',100:'#dbe7fe',200:'#bfd6fe',300:'#93b9fd',400:'#6094fa',
+    500:'#3b6ff2',600:'#274fe6',700:'#1f3dd1',800:'#2033a8',900:'#1f2f85' } } } } };
+</script>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+<header class="bg-slate-900 text-white">
+  <div class="max-w-5xl mx-auto px-4 py-12 sm:py-16">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-11 h-11 rounded-xl bg-brand-600 flex items-center justify-center font-bold">IT</div>
+      <span class="font-semibold tracking-wide">ASKER IT Asset</span>
+      <span class="text-[11px] font-semibold bg-emerald-400/20 text-emerald-300 rounded-full px-2.5 py-0.5">Open source · MIT</span>
+    </div>
+    <h1 class="text-3xl sm:text-5xl font-extrabold leading-tight max-w-3xl">Aset IT kantor, rapi dalam satu sistem.</h1>
+    <p class="mt-4 text-slate-300 text-base sm:text-lg max-w-2xl">Aplikasi web manajemen aset IT dan helpdesk: inventaris aset, ticketing, stok barang, mutasi aset, dan export audit. Gratis dipakai dan boleh dikembangkan sendiri.</p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a href="download/asker-it-asset.zip" download class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl px-6 py-3">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+        Unduh aplikasi (ZIP, 7,5 MB)</a>
+      <a href="./" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl px-6 py-3 border border-white/20">Coba demo langsung →</a>
+    </div>
+    <p class="mt-4 text-sm text-slate-400">Demo berjalan di browser dengan data contoh. Akun: <b class="text-slate-200">admin</b> / <b class="text-slate-200">admin123</b> atau <b class="text-slate-200">user</b> / <b class="text-slate-200">user123</b>.</p>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-10 space-y-10">
+
+  <a href="./" class="block rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-white">
+    <img src="screenshots/02-dashboard-admin.jpg" alt="Tampilan dashboard admin" class="w-full block">
+  </a>
+
+  <section>
+    <h2 class="text-xl font-bold mb-4">Fitur</h2>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Data Aset</b><span class="text-slate-600">Nomor aset otomatis, pengguna, lokasi, spesifikasi, software, aksesoris, label dan PDF.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Ticketing IT</b><span class="text-slate-600">User membuat tiket, admin memproses. Riwayat update dan detail pengerjaan tercatat.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Stok Barang</b><span class="text-slate-600">Barang masuk dan keluar, rekap per kategori dan per user, peringatan restock.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Mutasi Aset</b><span class="text-slate-600">Serah terima dan pemindahan aset dengan berita acara siap cetak.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Aset Rusak</b><span class="text-slate-600">Daftar aset rusak, lokasi penyimpanan, dan status perbaikannya.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Export Audit</b><span class="text-slate-600">Pilih sendiri data dan kolom yang diminta auditor, lalu export ke Excel.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Ganti Password PC</b><span class="text-slate-600">Password baru yang berbeda untuk tiap PC dan laptop, dengan daftar kerja.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Signature Email</b><span class="text-slate-600">Gambar signature seragam untuk karyawan, warna mengikuti logo perusahaan.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b class="block text-slate-900">Praktis</b><span class="text-slate-600">Nyaman di HP dan laptop, dua bahasa (Indonesia/English), import dan export Excel.</span></div>
+    </div>
+  </section>
+
+  <section class="grid gap-6 lg:grid-cols-2">
+    <div class="bg-white rounded-2xl p-6 shadow-sm">
+      <h2 class="text-xl font-bold mb-3">Cara memasang</h2>
+      <ol class="list-decimal pl-5 space-y-2 text-sm text-slate-700">
+        <li>Unduh file ZIP di atas, lalu ekstrak ke <code class="bg-slate-100 px-1.5 py-0.5 rounded">htdocs</code>, misalnya <code class="bg-slate-100 px-1.5 py-0.5 rounded break-all">C:\xampp\htdocs\asker-it-asset</code>.</li>
+        <li>Jalankan Apache dan MySQL.</li>
+        <li>Buka <code class="bg-slate-100 px-1.5 py-0.5 rounded break-all">http://localhost/asker-it-asset/</code>. Halaman instalasi terbuka otomatis.</li>
+        <li>Isi data database, nama sistem, dan akun admin pertama, lalu klik <b>Instal sekarang</b>.</li>
+        <li>Login, lalu hapus file <code class="bg-slate-100 px-1.5 py-0.5 rounded">install.php</code> dari server.</li>
+      </ol>
+      <p class="text-xs text-slate-500 mt-4">Panduan lengkap ada di file <code>PANDUAN_INSTALASI.md</code> dan <code>README.md</code> di dalam ZIP.</p>
+    </div>
+    <div class="bg-white rounded-2xl p-6 shadow-sm">
+      <h2 class="text-xl font-bold mb-3">Kebutuhan dan catatan</h2>
+      <ul class="list-disc pl-5 space-y-2 text-sm text-slate-700">
+        <li>PHP 8.0 atau lebih baru dengan ekstensi <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, <code>zip</code>.</li>
+        <li>MySQL atau MariaDB. XAMPP sudah cukup.</li>
+        <li>Pustaka pendukung sudah ada di dalam ZIP, tidak perlu <code>composer install</code>.</li>
+        <li>Dirancang untuk <b>jaringan internal kantor</b>. Jangan dibuka langsung ke internet tanpa pengamanan tambahan.</li>
+        <li>Username dan password PC pada data aset disimpan sebagai teks biasa (data referensi IT). Pertimbangkan sebelum mengisinya.</li>
+        <li>Lisensi <a href="LICENSE" class="text-brand-700 underline">MIT</a>: bebas dipakai, diubah, dan dibagikan.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-bold mb-4">Tangkapan layar</h2>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <img src="screenshots/09-mutasi-aset.jpg" alt="Menu Mutasi Aset" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
+      <img src="screenshots/10-export-audit.jpg" alt="Menu Export Audit" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
+      <img src="screenshots/11-ganti-password-pc.jpg" alt="Menu Ganti Password PC" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
+      <img src="screenshots/12-signature-email.jpg" alt="Menu Signature Email" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
+    </div>
+    <p class="text-xs text-slate-500 mt-3">Tangkapan layar diambil dari versi demo. Semua data di dalamnya adalah data contoh.</p>
+  </section>
+
+  <section class="bg-brand-600 text-white rounded-2xl p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4">
+    <div><h2 class="text-xl font-bold">Coba dulu sebelum memasang</h2><p class="text-brand-100 text-sm mt-1">Demo bisa langsung dipakai tanpa instalasi. Perubahan hanya tersimpan di browser Anda.</p></div>
+    <div class="flex flex-wrap gap-3">
+      <a href="./" class="inline-flex items-center bg-white text-brand-700 font-semibold rounded-xl px-5 py-2.5">Buka demo</a>
+      <a href="download/asker-it-asset.zip" download class="inline-flex items-center bg-brand-800 hover:bg-brand-900 text-white font-semibold rounded-xl px-5 py-2.5">Unduh ZIP</a>
+    </div>
+  </section>
+</main>
+
+<footer class="text-center text-xs text-slate-400 py-8">
+  <a href="https://github.com/reksa-yp/it-asset-management-demo" class="underline">Repository GitHub</a> · © Copyright by ASKER
+</footer>
+</body>
+</html>

@@ -503,6 +503,7 @@
       <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg py-2.5 text-sm transition">Login</button>
     </form>
     <p class="mt-4 text-xs text-slate-400 text-center">Akun demo: <b>admin</b> / <b>admin123</b> · <b>user</b> / <b>user123</b></p>
+    ${ARTIFACT ? '' : '<p class="mt-3 text-xs text-center"><a href="unduh.html" class="font-medium text-blue-600 hover:underline">Unduh aplikasi ini (gratis, open source) →</a></p>'}
   </div>
   <p class="text-xs text-slate-400 text-center">${esc(COPYRIGHT)}</p>
 </div>`;
