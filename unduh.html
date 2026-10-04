@@ -108,20 +108,41 @@
   <a data-en="GitHub repository" href="https://github.com/reksa-yp/it-asset-management-demo" class="underline">Repository GitHub</a> · © Copyright by ASKER
 </footer>
 
-<!-- Badge melayang "Berikan Support": muncul hanya jika DONATE_URL diisi -->
-<a id="donateBadge" hidden target="_blank" rel="noopener"
-   class="fixed right-4 bottom-4 z-50 inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-full pl-4 pr-5 py-3 shadow-lg shadow-rose-900/30 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-300">
-  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-  <span data-en="Give Support">Berikan Support</span>
-</a>
+<!-- Badge melayang "Berikan Support": klik untuk membuka kartu berisi QR dan tautan donasi -->
+<div id="donateWrap" hidden class="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-3">
+  <div id="donateCard" hidden role="dialog" aria-labelledby="donateTitle" class="w-72 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 text-center">
+    <div class="flex items-start justify-between gap-2 text-left">
+      <div><h2 id="donateTitle" class="font-bold text-slate-900" data-en="Give Support">Berikan Support</h2>
+      <p class="text-xs text-slate-500 mt-0.5" data-en="The app is free. If it helps you, you can support its development.">Aplikasi ini gratis. Kalau terbantu, Anda bisa mendukung pengembangannya.</p></div>
+      <button type="button" id="donateClose" aria-label="Tutup" class="shrink-0 -mr-1 -mt-1 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <img src="assets/img/saweria-qr.png" alt="QR Saweria reksayp" width="311" height="321" class="mx-auto mt-3 w-52 h-auto">
+    <p class="text-xs text-slate-500 mt-2" data-en="Scan the QR with your phone camera, or open the page:">Pindai QR dengan kamera HP, atau buka halamannya:</p>
+    <a id="donateLink" target="_blank" rel="noopener" class="mt-2 inline-flex items-center justify-center w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl px-4 py-2.5 text-sm" data-en="Open Saweria">Buka Saweria</a>
+    <p class="text-[11px] text-slate-400 mt-2 break-all">saweria.co/reksayp</p>
+  </div>
+  <button type="button" id="donateBadge" aria-expanded="false" aria-controls="donateCard"
+     class="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-full pl-4 pr-5 py-3 shadow-lg shadow-rose-900/30 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-300">
+    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    <span data-en="Give Support">Berikan Support</span>
+  </button>
+</div>
 
 <script>
-  // Isi dengan alamat halaman donasi Anda (mis. Saweria, Trakteer, Ko-fi). Kosong = badge tidak ditampilkan.
-  var DONATE_URL = '';
+  // Alamat halaman donasi. Kosong = badge tidak ditampilkan.
+  var DONATE_URL = 'https://saweria.co/reksayp';
 
   (function () {
-    var badge = document.getElementById('donateBadge');
-    if (DONATE_URL) { badge.href = DONATE_URL; badge.hidden = false; }
+    var wrap = document.getElementById('donateWrap'), badge = document.getElementById('donateBadge'), card = document.getElementById('donateCard');
+    function setCard(open) { card.hidden = !open; badge.setAttribute('aria-expanded', String(open)); }
+    if (DONATE_URL) {
+      document.getElementById('donateLink').href = DONATE_URL; wrap.hidden = false;
+      badge.addEventListener('click', function () { setCard(card.hidden); });
+      document.getElementById('donateClose').addEventListener('click', function () { setCard(false); badge.focus(); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setCard(false); });
+      document.addEventListener('click', function (e) { if (!card.hidden && !wrap.contains(e.target)) setCard(false); });
+    }
 
     // Dua bahasa: teks Indonesia ada di halaman, teks Inggris di atribut data-en.
     var nodes = Array.prototype.slice.call(document.querySelectorAll('[data-en]'));
