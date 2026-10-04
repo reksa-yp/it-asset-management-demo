@@ -91,3 +91,10 @@
     .asset-table-wrap .asset-col-check,
     .asset-table-wrap .asset-col-no { position: static; box-shadow: none; }
 }
+
+/* Tombol Batal / Simpan selalu terlihat di dalam form pop-up */
+.modal-actions {
+    position: sticky; bottom: 0; z-index: 5;
+    background: #fff; padding-bottom: 0.25rem;
+    box-shadow: 0 -8px 12px -10px rgba(15, 23, 42, 0.25);
+}

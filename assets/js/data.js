@@ -50,8 +50,10 @@
     ['Yusuf Maulana', 'yusuf', 'Purchasing', 'user'],
     ['User Demo', 'user', 'Finance', 'user'],
   ];
+  const positions = ['IT Support', 'Staff', 'Supervisor', 'Operator', 'Staff', 'Manager', 'Staff', 'Leader', 'Staff', 'Supervisor', 'Staff', 'IT Support', 'Manager', 'Staff', 'Staff'];
   const users = people.map((p, i) => ({
     id: i + 1,
+    position: positions[i] || 'Staff',
     full_name: p[0],
     username: p[1],
     email: p[1] + '@contoh.co.id',
@@ -117,7 +119,7 @@
         status: status,
         printer_info: cat === 'Desktop PC' && rnd() < 0.3 ? 'Epson L3210' : '',
         monitor_info: cat === 'Desktop PC' ? pick(boards['Monitor']) : '',
-        accessories: isComputer && rnd() < 0.5 ? 'Keyboard + Mouse Logitech' : '',
+        accessories: isComputer && rnd() < 0.5 ? (cat === 'Laptop' ? 'Charger (Original 65W), Tas Laptop, Mouse (Logitech B100)' : 'Keyboard (Logitech K120), Mouse (Logitech B100)') : '',
         pc_username: owner && isComputer ? owner.pc_username : '',
         pc_password: owner && isComputer ? owner.pc_password : '',
         software: isComputer ? softwarePool.filter(() => rnd() < 0.4).slice(0, 3).map(([n, s]) => ({ name: n, serial: s === 'Original' ? 'XXXX-' + int(1000, 9999) : '', status: s })) : [],
@@ -243,9 +245,39 @@
     addTrx(cat, 'out', qty, 40 - i * 3, { item_name: itemOfCat[cat], user_id: u.id, recipient_name: u.full_name, recipient_department: u.department, note: i % 3 === 0 ? 'Pengganti yang rusak' : '' });
   });
 
+  // Aksesoris per baris (Nama + Brand/Type), diturunkan dari ringkasan teks di atas
+  assets.forEach((a) => {
+    a.accessory_items = (a.accessories || '').split(',').map((x) => x.trim()).filter(Boolean).map((x) => { const m = x.match(/^(.*?)\s*\((.*)\)$/); return m ? { name: m[1], brand: m[2] } : { name: x, brand: '' }; });
+  });
+
+  // Mutasi aset (contoh riwayat) & aset rusak
+  const ownerOf = (a) => users.find((u) => u.id === (assetOwners.find((o) => o.asset_id === a.id) || {}).user_id);
+  const accOf = (a) => a.accessory_items.map((x) => x.name + (x.brand ? ' (' + x.brand + ')' : '')).join(', ');
+  const mutations = [];
+  const used = assets.filter((a) => (a.category === 'Laptop' || a.category === 'Desktop PC') && ownerOf(a));
+  [[used[1], 'rotation', 20, 'Pindah bagian, laptop ikut dipindahkan'], [used[3], 'replace', 12, 'Pengganti perangkat lama yang rusak'], [used[5], 'rotation', 6, '']].forEach(([a, reason, age, note], i) => {
+    if (!a) return; const to = ownerOf(a); const from = usersNoAdmin[(i * 3 + 2) % usersNoAdmin.length];
+    mutations.push({ id: mutations.length + 1, number: 'MUT-' + dateOnly(daysAgo(age)).slice(0, 7).replace('-', '') + '-' + pad(mutations.length + 1, 4), date: dateOnly(daysAgo(age)), asset_id: a.id, asset_number: a.asset_number, asset_category: a.category, asset_name: a.device_name,
+      serial_number: a.serial_number, accessories: accOf(a), from_names: from.id === to.id ? '' : from.full_name, from_department: from.id === to.id ? '' : from.department, from_location: 'Lantai 1',
+      to_names: to.full_name, to_department: to.department, to_location: a.location, reason, condition: 'Baik', note, by: 'Admin Demo' });
+  });
+  const stokLaptop = assets.find((a) => a.category === 'Laptop' && a.status === 'Stok');
+  if (stokLaptop) mutations.push({ id: mutations.length + 1, number: 'MUT-' + dateOnly(daysAgo(3)).slice(0, 7).replace('-', '') + '-' + pad(mutations.length + 1, 4), date: dateOnly(daysAgo(3)), asset_id: stokLaptop.id, asset_number: stokLaptop.asset_number, asset_category: stokLaptop.category, asset_name: stokLaptop.device_name,
+    serial_number: stokLaptop.serial_number, accessories: accOf(stokLaptop), from_names: 'Yusuf Maulana', from_department: 'Purchasing', from_location: 'Lantai 2', to_names: '', to_department: '', to_location: stokLaptop.location, reason: 'resign', condition: 'Baik', note: 'Karyawan resign, aset dikembalikan ke IT', by: 'Admin Demo' });
+  const damages = [];
+  assets.filter((a) => a.status === 'Tidak Digunakan').slice(0, 3).forEach((a, i) => {
+    damages.push({ id: i + 1, asset_id: a.id, asset_number: a.asset_number, asset_category: a.category, asset_name: a.device_name, date: dateOnly(daysAgo(8 + i * 9)),
+      issue: ['Mati total setelah listrik padam, tidak bisa menyala sama sekali.', 'Layar bergaris dan sering blank.', 'Tidak bisa menarik kertas, roller aus.'][i], storage: 'Gudang IT',
+      last_user: usersNoAdmin[(i * 4 + 1) % usersNoAdmin.length].full_name, last_department: usersNoAdmin[(i * 4 + 1) % usersNoAdmin.length].department, prev_status: 'Digunakan', state: ['broken', 'repair', 'broken'][i], note: '' });
+  });
+
   window.DEMO_SEED = {
-    version: 5,
-    settings: { app_name: 'IT Asset Management', asset_prefix: 'AST' },
+    version: 6,
+    settings: { app_name: 'IT Asset Management', asset_prefix: 'AST',
+      signature: { company: 'PT Nusa Teknologi', t1: '+62 21 5550 1234', t2: '+62 21 5550 5678', addr1: 'Jl. Industri Raya No. 12, Kawasan Industri', addr2: 'Kab. Bekasi, Jawa Barat-Indonesia', logo: '' } },
+    mutations,
+    damages,
+    pcDraft: {},
     departments,
     categories,
     users,

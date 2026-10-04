@@ -22,31 +22,34 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
 ## Fitur Utama
 
 **Admin**
-- **Dashboard** — total aset, antrian tiket, perbaikan selesai hari ini, grafik aset per jenis,
-  peringatan aset yang *harus upgrade* dan stok barang menipis.
-- **Upgrade Aset** 🆕 — tombol **Proses Upgrade** di Dashboard: isi komponen yang di-upgrade
-  (RAM, storage, processor, OS, software, dll.), data aset **otomatis diperbarui**, dan tercatat di
-  **Riwayat Upgrade** pada detail aset (sebelum → sesudah, tanggal, teknisi, tiket asal). Ikut tercetak di Print Aset.
-- **Manajemen Aset IT** — pencarian & filter (jenis, departement, status), nomor aset otomatis
-  (`PREFIX/DEPT/JENIS/001`), banyak software per aset, isian khusus Tablet, detail & cetak.
-- **Import Aset + User sekaligus** 🆕 — satu template Excel: satu baris = satu aset beserta penggunanya.
-  User baru dibuat otomatis dan langsung terhubung ke asetnya (bisa dicoba di demo: *Download Template* → isi → *Import*).
+- **Dashboard** — total aset, antrian tiket, grafik aset per jenis, peringatan aset yang *harus upgrade* dan stok menipis.
+  Kartu **Perbaikan Selesai Hari Ini** bisa diklik untuk melihat tiket mana saja yang diselesaikan hari ini.
+- **Aset** — pencarian & filter, banyak software per aset, isian khusus Tablet, detail & cetak.
+  🆕 **Nomor aset dibuat otomatis saat Simpan** (`PREFIX/DEPT/JENIS/001`), tetap bisa diubah saat edit.
+  🆕 **Aksesoris diisi per baris** (Nama + Brand/Type). 🆕 Kolom **Jabatan** mengikuti data user.
+- **Import Aset + User sekaligus** — satu template Excel: satu baris = satu aset beserta penggunanya.
 - **Kategori Aset** yang bisa dikustomisasi.
-- **Management User** — departement, role, dan data login PC.
-- **Ticketing IT** — status Menunggu → Proses → Selesai, rincian pengerjaan & hasil pengecekan, riwayat status.
-- **Stok Barang** — barang masuk/keluar, rekap per kategori & per user, dan **stok aset IT otomatis**:
-  aset berstatus *Stok* langsung terhitung dan bisa **diserahkan ke user** dengan satu klik.
-  🆕 **Barang Keluar dipilih dari daftar Barang Masuk** (tidak diketik manual) lengkap dengan sisa stok per barang,
-  dan tidak bisa mengeluarkan melebihi stok yang tersedia.
+- **Management User** — departement, role, data login PC. 🆕 Isian **Jabatan** dan tombol **Generate Password PC**
+  (pola 3 huruf + angka + simbol, contoh `kMa249$`).
+- **Ticketing IT** — status Menunggu → Proses → Selesai, rincian pengerjaan & hasil pengecekan.
+  🆕 Daftar tiket menampilkan **tanggal selesai, lama pengerjaan, dan Riwayat Update** (siapa mengubah status dan kapan).
+- **Stok Barang** — barang masuk/keluar, rekap per kategori & per user, stok aset IT otomatis, serah terima ke user.
+- 🆕 **Mutasi Aset** — pemindahan aset antar pengguna atau kembali ke stok, lengkap dengan **Berita Acara** siap cetak.
+  Serah terima dari menu Stok juga tercatat di sini.
+- 🆕 **Aset Rusak** — daftar aset rusak, lokasi penyimpanan, dan status perbaikannya.
+- 🆕 **Export Audit** — pilih sendiri sumber data dan kolom yang diminta auditor, saring per jenis aset/departement, lalu export.
+- 🆕 **Ganti Password PC** — membuat password baru yang **berbeda untuk tiap aset**, daftar kerja untuk di-export,
+  lalu **Terapkan ke sistem**.
 - **Pengaturan Sistem** — nama sistem, logo, dan prefix nomor aset.
 
 **User**
-- **Aset Saya** — detail perangkat (General, Hardware, Network, System), riwayat perbaikan, dan 🆕 riwayat upgrade.
+- **Aset Saya** — detail perangkat, riwayat perbaikan, dan riwayat upgrade.
 - **Buat & batalkan tiket**, serta **Antrian Ticket** untuk melihat posisi tiket.
 
-**Umum** 🆕
-- **Menu akun di ikon user (pojok kanan atas)** berisi nama, role, dan **Logout**.
-- Semua pop-up form punya tombol **X** untuk menutup.
+**Admin & User** 🆕
+- **Signature Email** — membuat gambar signature email (JPG). Nama, departemen, dan jabatan terisi otomatis;
+  logo, telepon, dan alamat perusahaan diatur admin, dan **warna signature otomatis mengikuti warna logo**.
+- **Menu akun di ikon user (pojok kanan atas)** — menampilkan jabatan, departement, email, dan **Ganti Password** login.
 
 ## Teknologi
 
@@ -61,8 +64,15 @@ Fitur yang hanya ada di aplikasi asli: export Excel/PDF lengkap, backup database
 
 ## Screenshot
 
-*(Opsional — tambahkan gambar ke folder `screenshots/` lalu tampilkan di sini, contoh:)*
-<!-- ![Dashboard](screenshots/dashboard.png) -->
+| Mutasi Aset | Export Audit |
+|---|---|
+| ![Mutasi Aset](screenshots/09-mutasi-aset.jpg) | ![Export Audit](screenshots/10-export-audit.jpg) |
+
+| Ganti Password PC | Signature Email |
+|---|---|
+| ![Ganti Password PC](screenshots/11-ganti-password-pc.jpg) | ![Signature Email](screenshots/12-signature-email.jpg) |
+
+Tangkapan layar lain ada di folder `screenshots/`.
 
 ---
 
@@ -72,7 +82,7 @@ Fitur yang hanya ada di aplikasi asli: export Excel/PDF lengkap, backup database
    - Repository name: `it-asset-management-demo`
    - Pilih **Public** → **Create repository**
 2. Klik **uploading an existing file**, lalu seret **isi** folder demo ini
-   (`index.html`, folder `assets`, `README.md`) → **Commit changes**.
+   (`index.html`, folder `assets`, folder `screenshots`, `README.md`) → **Commit changes**.
 3. **Settings** → **Pages** → Source: **Deploy from a branch** → Branch **main**, folder **/ (root)** → **Save**.
 4. Tunggu 1–2 menit. Alamat demo: `https://USERNAME-GITHUB-ANDA.github.io/it-asset-management-demo/`
 5. Edit `README.md` ini di GitHub (ikon pensil) dan ganti alamat **Live demo** di bagian atas.

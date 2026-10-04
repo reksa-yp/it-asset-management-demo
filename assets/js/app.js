@@ -94,6 +94,11 @@
     mouse: '<rect x="5" y="2" width="14" height="20" rx="7"/><path d="M12 6v4"/>',
     tablet: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M12 18h.01"/>',
     up: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+    transfer: '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+    sheet: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/>',
+    key: '<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
+    mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
   };
   function icon(name, cls = 'w-4 h-4') {
@@ -218,9 +223,9 @@
     closeModal();
     const wrap = document.createElement('div');
     wrap.id = 'modal';
-    wrap.className = 'fixed inset-0 z-[60] flex items-start sm:items-center justify-center bg-black/40 p-3 overflow-y-auto';
+    wrap.className = 'fixed inset-0 z-[60] flex items-start justify-center bg-black/40 p-3 overflow-y-auto';
     wrap.innerHTML = `
-      <div class="bg-white rounded-xl shadow-xl w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} my-6">
+      <div class="bg-white rounded-xl shadow-xl w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} my-auto">
         <div class="flex items-center justify-between px-5 py-4 border-b">
           <h3 class="font-semibold text-slate-700">${esc(title)}</h3>
           <button type="button" data-close class="text-slate-400 hover:text-slate-600">${icon('x', 'w-5 h-5')}</button>
@@ -295,13 +300,19 @@
     ['users', 'users', 'Management User'],
     ['tickets', 'ticket', 'Ticketing IT'],
     ['stock', 'package', 'Stok Barang'],
+    ['mutations', 'transfer', 'Mutasi Aset'],
+    ['damages', 'alert', 'Aset Rusak'],
+    ['audit', 'sheet', 'Export Audit'],
+    ['pcpw', 'key', 'Ganti Password PC'],
     ['my-asset', 'monitor', 'Aset Saya'],
+    ['signature', 'mail', 'Signature Email'],
     ['settings', 'settings', 'Pengaturan Sistem'],
   ];
   const USER_NAV = [
     ['my-asset', 'monitor', 'Aset Saya'],
     ['tickets', 'ticket', 'Ticketing IT'],
     ['queue', 'clock', 'Antrian Ticket'],
+    ['signature', 'mail', 'Signature Email'],
   ];
   const PAGES = {};
   // Mode artifact (dibuka di claude.ai): tanpa hash URL, cetak & unduh file dimatikan.
@@ -401,7 +412,9 @@
             <div class="px-4 pb-2 mb-1 border-b border-slate-100">
               <p class="font-semibold text-slate-800 truncate">${esc(u.full_name)}</p>
               <p class="text-xs text-slate-500 truncate">${esc(u.username)} &middot; ${u.role === 'admin' ? 'Admin' : 'User'}</p>
+              <dl class="mt-2 space-y-1 text-xs">${[['Jabatan', u.position], ['Departement', u.department], ['Email', u.email]].map(([k, v]) => `<div class="flex gap-2"><dt class="w-20 shrink-0 text-slate-400">${k}</dt><dd class="min-w-0 break-words font-medium text-slate-700">${esc(v || DASH)}</dd></div>`).join('')}</dl>
             </div>
+            <button type="button" id="btnChangePw" role="menuitem" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">${icon('lock')} Ganti Password</button>
             <button type="button" id="btnSwitchRole2" class="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm text-brand-700 hover:bg-brand-50">${icon('refresh')} Coba sebagai ${isAdmin() ? 'User' : 'Admin'}</button>
             <button type="button" id="btnLogoutMenu" role="menuitem" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">${icon('logout')} Logout</button>
           </div>
@@ -456,6 +469,7 @@
     document.onclick = (e) => { if (umWrap && umWrap.isConnected && !umWrap.contains(e.target)) setUm(false); };
     $('#btnLogoutMenu').onclick = async () => { setUm(false); if (await ask('Yakin ingin keluar?', 'Logout')) logout(); };
     $('#btnSwitchRole2').onclick = () => $('#btnSwitchRole').click();
+    $('#btnChangePw').onclick = () => { setUm(false); changePasswordModal(); };
   }
 
   // ------------------------------------------------------------------
@@ -474,11 +488,11 @@
     <div class="space-y-2 mb-5">
       <button data-quick="admin" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 text-left transition">
         <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">${icon('dashboard', 'w-5 h-5')}</span>
-        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai Admin</span><span class="block text-xs text-slate-500">Dashboard, aset, user, ticketing, stok</span></span>
+        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai Admin</span><span class="block text-xs text-slate-500">Aset, ticketing, stok, mutasi, audit, signature</span></span>
       </button>
       <button data-quick="user" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 text-left transition">
         <span class="w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center">${icon('monitor', 'w-5 h-5')}</span>
-        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai User</span><span class="block text-xs text-slate-500">Aset saya, buat tiket, antrian</span></span>
+        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai User</span><span class="block text-xs text-slate-500">Aset saya, buat tiket, antrian, signature</span></span>
       </button>
     </div>
     <div class="flex items-center gap-3 text-xs text-slate-400 mb-4"><div class="flex-1 border-t"></div>atau login manual<div class="flex-1 border-t"></div></div>
@@ -499,7 +513,7 @@
       e.preventDefault();
       const { username, password } = formData(e.target);
       const u = db.users.find((x) => x.username === username.trim() && x.is_active);
-      const ok = u && (password === (u.username === 'admin' ? 'admin123' : u.username === 'user' ? 'user123' : 'demo123') || password === u.demo_password);
+      const ok = u && password === (u.demo_password || defaultPassword(u));
       if (!ok) { const el = $('#loginError'); el.textContent = 'Username atau password salah.'; el.classList.remove('hidden'); return; }
       login(u.id);
     };
@@ -512,7 +526,8 @@
     render() {
       const total = db.assets.length;
       const queue = db.tickets.filter((t) => !isCancelled(t) && (t.status === 'Menunggu' || t.status === 'Proses')).length;
-      const fixedToday = db.tickets.filter((t) => t.status === 'Selesai' && t.resolved_at && localDay(t.resolved_at) === todayStr()).length;
+      const fixedList = db.tickets.filter((t) => doneAt(t) && localDay(doneAt(t)) === todayStr());
+      const fixedToday = fixedList.length;
       const low = db.stockCategories.map((c) => ({ ...c, stock: stockOf(c.id) })).filter((c) => c.stock <= c.min_stock);
       const colors = ['#3b6ff2', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
       const breakdown = db.categories.map((c, i) => ({ name: c.name, total: db.assets.filter((a) => a.category === c.name).length, color: colors[i % colors.length] })).filter((b) => b.total);
@@ -530,9 +545,17 @@
   <a href="#/tickets" class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-amber-500 hover:bg-slate-50">
     <p class="text-sm text-slate-500">Antrian Tiket</p><p class="text-3xl font-bold text-slate-800 mt-1">${queue}</p>
   </a>
-  <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-green-500">
-    <p class="text-sm text-slate-500">Perbaikan Selesai Hari Ini</p><p class="text-3xl font-bold text-slate-800 mt-1">${fixedToday}</p>
-  </div>
+  <button type="button" id="btnFixed" class="text-left bg-white rounded-xl shadow-sm p-5 border-l-4 border-green-500 hover:bg-slate-50 transition">
+    <div class="flex items-center justify-between"><p class="text-sm text-slate-500">Perbaikan Selesai Hari Ini</p><span class="text-xs text-slate-400">klik untuk rincian ▾</span></div>
+    <p class="text-3xl font-bold text-slate-800 mt-1">${fixedToday}</p>
+  </button>
+</div>
+
+<div id="fixedPanel" class="hidden bg-white rounded-xl shadow-sm p-5 mb-4">
+  <h3 class="font-semibold text-slate-700 mb-1">Tiket yang diselesaikan hari ini</h3>
+  <p class="text-xs text-slate-400 mb-3">Dihitung dari tanggal tiket diselesaikan, bukan tanggal dibuat.</p>
+  ${fixedList.length ? `<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-slate-500 border-b"><th class="py-2 pr-3">No. Tiket</th><th class="py-2 pr-3">Pelapor</th><th class="py-2 pr-3">Dibuat</th><th class="py-2 pr-3">Selesai</th></tr></thead>
+  <tbody>${fixedList.map((t) => `<tr class="border-b last:border-0"><td class="py-2 pr-3 font-medium whitespace-nowrap">${esc(t.ticket_number)}</td><td class="py-2 pr-3">${esc((userById(t.reported_by) || {}).full_name)}</td><td class="py-2 pr-3 text-slate-500 whitespace-nowrap">${fmtDateTime(t.created_at)}</td><td class="py-2 pr-3 text-green-700 whitespace-nowrap">${fmtDateTime(doneAt(t))}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-sm text-slate-400">Belum ada tiket yang diselesaikan hari ini.</p>'}
 </div>
 
 <div id="breakdownPanel" class="hidden bg-white rounded-xl shadow-sm p-5 mb-4">
@@ -595,6 +618,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     },
     bind() {
       $('#btnBreakdown').onclick = () => $('#breakdownPanel').classList.toggle('hidden');
+      $('#btnFixed').onclick = () => $('#fixedPanel').classList.toggle('hidden');
       const bu = $('#btnUpgrade'); if (bu) bu.onclick = () => $('#upgradePanel').classList.toggle('hidden');
       $$('[data-upgrade]').forEach((b) => (b.onclick = () => { const [a, t] = b.dataset.upgrade.split(':').map(Number); upgradeForm(a, t); }));
       $$('[data-ack]').forEach((b) => (b.onclick = async () => {
@@ -634,11 +658,11 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
   <div class="p-5">
     <div data-panel="tGeneral">${rows([
       ['Nomor Aset', esc(a.asset_number)], ['Jenis Aset', esc(a.category)], ['Nama Perangkat', esc(a.device_name)],
-      ['Pengguna', esc(owners.map((o) => o.full_name).join(', '))], ['Departement', esc(a.department)], ['Email Pengguna', esc(a.owner_email)],
+      ['Pengguna', esc(owners.map((o) => o.full_name).join(', '))], ['Departement', esc(a.department)], ['Jabatan', esc(positionsOf(a.id))], ['Email Pengguna', esc(a.owner_email)],
       ['Lokasi', esc(a.location)], ['Serial Number', esc(a.serial_number)], [isTablet ? 'Received Date' : 'Tanggal Pembelian', a.purchase_date ? fmtDate(a.purchase_date) : ''],
       ...(isTablet ? [['ID Tablet', esc(a.tablet_id)], ['Kondisi', esc(a.tablet_condition)]] : []),
     ])}</div>
-    <div data-panel="tHardware" class="hidden">${rows([['Processor', esc(a.processor)], ['Motherboard / Brand', esc(a.motherboard_brand)], ['RAM', esc(a.ram)], ['Storage', esc(a.storage)], ['Monitor', esc(a.monitor_info)], ['Printer', esc(a.printer_info)], ['Aksesoris', esc(a.accessories)]])}</div>
+    <div data-panel="tHardware" class="hidden">${rows([['Processor', esc(a.processor)], ['Motherboard / Brand', esc(a.motherboard_brand)], ['RAM', esc(a.ram)], ['Storage', esc(a.storage)], ['Monitor', esc(a.monitor_info)], ['Printer', esc(a.printer_info)], ['Aksesoris', esc(accText(a))]])}</div>
     <div data-panel="tNetwork" class="hidden">${rows([['IP Address', esc(a.ip_address)], ['Hostname', esc(a.hostname)]])}</div>
     <div data-panel="tSystem" class="hidden">${rows([['Sistem Operasi', esc(a.os_name)], ['Status Lisensi OS', a.os_status === 'Original' ? 'Original' : 'Belum Original'], ['Software Terpasang', sw ? `<div class="space-y-1">${sw}</div>` : ''], ['Tanggal Input', fmtDate(a.created_at)]])}</div>
     <div data-panel="tHistory" class="hidden">${upgradeHistoryHtml(a.id)}${upgradesOf(a.id).length ? '<p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Riwayat Tiket</p>' : ''}${history.length ? `<div class="space-y-3">${history.map((t) => { const w = workOf(t.id); const st = ticketStatus(t); return `
@@ -754,7 +778,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       ${field('Keterangan', `<textarea id="upNotes" rows="2" class="${inputCls}" placeholder="Contoh: RAM lama disimpan di gudang IT sebagai cadangan"></textarea>`)}
       ${t ? `<label class="flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" id="upDone" checked class="mt-0.5"><span>Tandai tiket <b>${esc(t.ticket_number)}</b> selesai di-upgrade (hilang dari daftar Dashboard)</span></label>` : ''}
       <p id="upErr" class="hidden text-sm bg-red-50 text-red-700 rounded-lg px-3 py-2"></p>
-      <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan Upgrade</button></div>
+      <div class="modal-actions flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan Upgrade</button></div>
     </form>`;
     openModal(t ? 'Proses Upgrade Aset' : 'Catat Upgrade Aset', body, {
       wide: true,
@@ -848,6 +872,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
         <td class="py-2 px-3 whitespace-nowrap">${esc(a.category)}</td>
         <td class="py-2 px-3 whitespace-nowrap">${esc(owners.map((o) => o.full_name).join(', ') || DASH)}</td>
         <td class="py-2 px-3 whitespace-nowrap">${esc(a.department || DASH)}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${esc(positionsOf(a.id) || DASH)}</td>
         <td class="py-2 px-3 whitespace-nowrap">${esc(a.ip_address || DASH)}</td>
         <td class="py-2 px-3 whitespace-nowrap">${esc(a.hostname || DASH)}</td>
         <td class="py-2 px-3 whitespace-nowrap">${esc(a.location || DASH)}</td>
@@ -860,7 +885,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
           ${ARTIFACT ? '' : `<button data-print="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100" title="Print">${icon('printer')}</button>`}
           <button data-del="${a.id}" class="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600" title="Hapus">${icon('trash')}</button>
         </td></tr>`;
-    }).join('') || `<tr><td colspan="11" class="py-8 text-center text-slate-400">Tidak ada aset yang cocok.</td></tr>`;
+    }).join('') || `<tr><td colspan="12" class="py-8 text-center text-slate-400">Tidak ada aset yang cocok.</td></tr>`;
     const pager = `<div class="flex items-center justify-between gap-2 px-4 py-3 text-sm text-slate-500 border-t">
       <span>${list.length} aset</span>
       <div class="flex items-center gap-1">
@@ -890,7 +915,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
 <div class="bg-white rounded-xl shadow-sm">
   <div class="asset-table-wrap"><table class="w-full text-sm">
     <thead><tr class="text-left text-slate-500">
-      <th class="asset-col-no py-2.5 px-3">No. Aset</th><th class="py-2.5 px-3">Jenis</th><th class="py-2.5 px-3">Pengguna</th><th class="py-2.5 px-3">Departement</th>
+      <th class="asset-col-no py-2.5 px-3">No. Aset</th><th class="py-2.5 px-3">Jenis</th><th class="py-2.5 px-3">Pengguna</th><th class="py-2.5 px-3">Departement</th><th class="py-2.5 px-3">Jabatan</th>
       <th class="py-2.5 px-3">IP</th><th class="py-2.5 px-3">Hostname</th><th class="py-2.5 px-3">Lokasi</th><th class="py-2.5 px-3">Spesifikasi</th><th class="py-2.5 px-3">OS</th><th class="py-2.5 px-3">Status</th><th class="py-2.5 px-3 text-right">Aksi</th>
     </tr></thead>
     <tbody id="assetBody">${body}</tbody>
@@ -922,8 +947,8 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       $('#btnAddAsset').onclick = () => assetForm(null);
       $('#btnImportAU').onclick = () => importAssetUserModal();
       if ($('#btnExport')) $('#btnExport').onclick = () => {
-        const rows = [['No. Aset', 'Jenis', 'Nama Perangkat', 'Pengguna', 'Departement', 'Email', 'IP', 'Hostname', 'Lokasi', 'Processor', 'RAM', 'Storage', 'OS', 'Status OS', 'Serial Number', 'Tanggal Pembelian', 'Status']];
-        filteredAssets().forEach((a) => rows.push([a.asset_number, a.category, a.device_name, ownersOf(a.id).map((o) => o.full_name).join(', '), a.department, a.owner_email, a.ip_address, a.hostname, a.location, a.processor, a.ram, a.storage, a.os_name, a.os_status, a.serial_number, a.purchase_date, a.status]));
+        const rows = [['No. Aset', 'Jenis', 'Nama Perangkat', 'Pengguna', 'Jabatan', 'Departement', 'Email', 'IP', 'Hostname', 'Lokasi', 'Processor', 'RAM', 'Storage', 'OS', 'Status OS', 'Serial Number', 'Tanggal Pembelian', 'Status']];
+        filteredAssets().forEach((a) => rows.push([a.asset_number, a.category, a.device_name, ownersOf(a.id).map((o) => o.full_name).join(', '), positionsOf(a.id), a.department, a.owner_email, a.ip_address, a.hostname, a.location, a.processor, a.ram, a.storage, a.os_name, a.os_status, a.serial_number, a.purchase_date, a.status]));
         downloadCsv('aset_it_demo.csv', rows);
       };
       bindRows();
@@ -940,6 +965,10 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       <input data-sw="serial" value="${esc(s.serial || '')}" placeholder="Serial" class="${inputCls} col-span-3">
       <select data-sw="status" class="${inputCls} col-span-3">${options(['Original', 'Belum Original'], s.status || 'Original')}</select>
       <button type="button" data-sw-del class="col-span-1 text-slate-400 hover:text-red-600 flex items-center justify-center">${icon('x')}</button></div>`;
+    const accRow = (x = {}) => `<div class="acc-row grid grid-cols-12 gap-2">
+      <input data-acc="name" value="${esc(x.name || '')}" placeholder="Nama, mis. Charger" class="${inputCls} col-span-5">
+      <input data-acc="brand" value="${esc(x.brand || '')}" placeholder="Brand / Type, mis. ASUS 45W" class="${inputCls} col-span-6">
+      <button type="button" data-acc-del class="col-span-1 text-slate-400 hover:text-red-600 flex items-center justify-center">${icon('x')}</button></div>`;
     const body = `
 <form id="assetForm" class="space-y-4">
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -948,8 +977,9 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     ${field('Pengguna', `<select name="owner" id="fmOwner" class="${inputCls}">${options(activeUsers.map((u) => ({ value: u.id, label: `${u.full_name} (${u.department || '-'})` })), owners[0] || '', '— Tidak ada (Stok) —')}</select>`)}
     ${field('Departement', `<select name="department" id="fmDept" class="${inputCls}">${options(db.departments, a.department, '—')}</select>`)}
     ${field('Lokasi', inp('location', 'id="fmLoc" placeholder="mis. Lantai 2 / Line 1"'))}
-    ${field('Nomor Aset', `<div class="flex gap-2"><input name="asset_number" id="fmNo" value="${esc(a.asset_number || '')}" required class="${inputCls}"><button type="button" id="btnGen" class="shrink-0 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 text-xs font-medium">Buatkan Otomatis</button></div>
-      <p class="text-xs text-slate-400 mt-1">Format: ${esc(prefix())}/Departement/Jenis/Urutan</p>`)}
+    ${field('Nomor Aset', id ? `<div class="flex gap-2"><input name="asset_number" id="fmNo" value="${esc(a.asset_number || '')}" class="${inputCls}"><button type="button" id="btnGen" class="shrink-0 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 text-xs font-medium">Buatkan Otomatis</button></div>
+      <p class="text-xs text-slate-400 mt-1">Boleh diubah. Kosongkan untuk tetap memakai nomor lama.</p>` : `<input name="asset_number" id="fmNo" readonly tabindex="-1" placeholder="Otomatis saat disimpan" class="${inputCls} bg-slate-50 text-slate-500 cursor-not-allowed">
+      <p class="text-xs text-slate-400 mt-1">Dibuat otomatis saat Simpan: ${esc(prefix())}/Departement/Jenis/Urutan</p>`)}
     ${field('Nama Perangkat', inp('device_name'))}
     ${field('Email Pengguna', inp('owner_email', 'id="fmEmail" type="email"'))}
     ${field('IP Address', inp('ip_address'))}
@@ -964,7 +994,6 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     ${field('Tanggal Pembelian', `<input type="date" name="purchase_date" value="${esc(a.purchase_date || '')}" class="${inputCls}">`)}
     ${field('Monitor', inp('monitor_info'))}
     ${field('Printer', inp('printer_info'))}
-    ${field('Aksesoris', inp('accessories'), 'sm:col-span-2')}
   </div>
   <div id="tabletBox" class="${/tablet/i.test(a.category) ? '' : 'hidden'} grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg bg-blue-50 p-3">
     ${field('ID Tablet', inp('tablet_id', 'maxlength="50"'))}
@@ -975,7 +1004,12 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     <button type="button" id="btnSwAdd" class="text-xs font-medium text-blue-600 inline-flex items-center gap-1">${icon('plus', 'w-3.5 h-3.5')} Tambah</button></div>
     <div id="swList" class="space-y-2">${(a.software || []).map(swRow).join('')}</div>
   </div>
-  <div class="flex justify-end gap-2 pt-2 border-t">
+  <div>
+    <div class="flex items-center justify-between mb-1"><label class="text-sm font-medium text-slate-600">Aksesoris</label>
+    <button type="button" id="btnAccAdd" class="text-xs font-medium text-blue-600 inline-flex items-center gap-1">${icon('plus', 'w-3.5 h-3.5')} Tambah</button></div>
+    <div id="accList" class="space-y-2">${(accItems(a).length ? accItems(a) : (a.accessories ? [{ name: a.accessories, brand: '' }] : [])).map(accRow).join('')}</div>
+  </div>
+  <div class="modal-actions flex justify-end gap-2 pt-2 border-t">
     <button type="button" data-close class="${btnGhost}">Batal</button>
     <button class="${btnPrimary}">${icon('check')} Simpan</button>
   </div>
@@ -989,7 +1023,9 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
           if (u) { $('#fmDept', root).value = u.department || ''; if (!$('#fmEmail', root).value) $('#fmEmail', root).value = u.email || ''; f.status.value = 'Digunakan'; }
         };
         $('#fmCat', root).onchange = (e) => $('#tabletBox', root).classList.toggle('hidden', !/tablet/i.test(e.target.value));
-        $('#btnGen', root).onclick = () => {
+        $('#btnAccAdd', root).onclick = () => { $('#accList', root).insertAdjacentHTML('beforeend', accRow()); };
+        $('#accList', root).onclick = (e) => { const b = e.target.closest('[data-acc-del]'); if (b) b.closest('.acc-row').remove(); };
+        if ($('#btnGen', root)) $('#btnGen', root).onclick = () => {
           const n = nextAssetNumber(f.category.value, f.department.value, f.location.value, id);
           if (!n) { toast('Untuk Tablet, isi Lokasi (Line) dulu.', false); return; }
           $('#fmNo', root).value = n;
@@ -999,14 +1035,19 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
         f.onsubmit = (e) => {
           e.preventDefault();
           const d = formData(f);
-          const no = d.asset_number.trim();
+          let no = (d.asset_number || '').trim();
+          if (!id) { // aset baru: nomor selalu dibuat otomatis saat disimpan
+            no = nextAssetNumber(d.category, d.department, d.location, null);
+            if (!no) { toast('Untuk Tablet, isi Lokasi (Line) dulu supaya nomor aset bisa dibuat.', false); return; }
+          } else if (!no) { no = assetById(id).asset_number; }
           if (db.assets.some((x) => x.asset_number === no && x.id !== id)) { toast('Nomor Aset sudah dipakai aset lain.', false); return; }
+          const accessory_items = $$('.acc-row', root).map((r) => ({ name: $('[data-acc=name]', r).value.trim(), brand: $('[data-acc=brand]', r).value.trim() })).filter((x) => x.name);
           const software = $$('.sw-row', root).map((r) => ({ name: $('[data-sw=name]', r).value.trim(), serial: $('[data-sw=serial]', r).value.trim(), status: $('[data-sw=status]', r).value })).filter((s) => s.name);
           const rec = Object.assign(id ? assetById(id) : { id: nextId(db.assets), created_at: new Date().toISOString() }, {
             asset_number: no, category: d.category, device_name: d.device_name.trim(), department: d.department, owner_email: d.owner_email.trim(),
             ip_address: d.ip_address.trim(), hostname: d.hostname.trim(), os_name: d.os_name.trim(), os_status: d.os_status, motherboard_brand: d.motherboard_brand.trim(),
             processor: d.processor.trim(), ram: d.ram.trim(), storage: d.storage.trim(), serial_number: d.serial_number.trim(), purchase_date: d.purchase_date,
-            location: d.location.trim(), status: d.status, printer_info: d.printer_info.trim(), monitor_info: d.monitor_info.trim(), accessories: d.accessories.trim(),
+            location: d.location.trim(), status: d.status, printer_info: d.printer_info.trim(), monitor_info: d.monitor_info.trim(), accessory_items, accessories: accessory_items.map((x) => x.name + (x.brand ? ' (' + x.brand + ')' : '')).join(', '),
             software, tablet_id: /tablet/i.test(d.category) ? (d.tablet_id || '').trim() : '', tablet_condition: /tablet/i.test(d.category) ? d.tablet_condition : '',
           });
           if (!id) db.assets.push(rec);
@@ -1016,7 +1057,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
             const u = userById(+d.owner);
             if (/pc|laptop/i.test(rec.category)) { rec.pc_username = u.pc_username; rec.pc_password = u.pc_password; }
           }
-          save(); closeModal(); render(); toast(id ? 'Aset diperbarui.' : 'Aset ditambahkan.');
+          save(); closeModal(); render(); toast(id ? 'Aset diperbarui.' : `Aset ditambahkan dengan nomor ${rec.asset_number}.`);
         };
       },
     });
@@ -1167,7 +1208,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
         <input type="file" id="auFile" accept=".xlsx,.xls" class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium">
       </div>
       <p id="auMsg" class="hidden rounded-lg px-3 py-2"></p>
-      <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Tutup</button><button type="button" id="auGo" class="${btnPrimary}">${icon('upload')} Import</button></div>
+      <div class="modal-actions flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Tutup</button><button type="button" id="auGo" class="${btnPrimary}">${icon('upload')} Import</button></div>
     </div>`, {
       onMount(root) {
         const msg = (ok, html) => { const el = $('#auMsg', root); el.className = 'rounded-lg px-3 py-2 ' + (ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'); el.innerHTML = html; };
@@ -1249,10 +1290,10 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
   PAGES.users = {
     render() {
       const q = userFilter.q.toLowerCase();
-      const list = db.users.filter((u) => !q || [u.full_name, u.username, u.email, u.department].join(' ').toLowerCase().includes(q));
+      const list = db.users.filter((u) => !q || [u.full_name, u.username, u.email, u.department, u.position].join(' ').toLowerCase().includes(q));
       const rows = list.map((u) => `<tr class="border-b last:border-0 hover:bg-slate-50">
         <td class="py-2.5 px-4"><div class="font-medium text-slate-700">${esc(u.full_name)}</div><div class="text-xs text-slate-400">${esc(u.email || '')}</div></td>
-        <td class="py-2.5 px-4">${esc(u.username)}</td><td class="py-2.5 px-4">${esc(u.department || DASH)}</td>
+        <td class="py-2.5 px-4">${esc(u.username)}</td><td class="py-2.5 px-4">${esc(u.department || DASH)}</td><td class="py-2.5 px-4">${esc(u.position || DASH)}</td>
         <td class="py-2.5 px-4 text-xs">${u.pc_username ? `${esc(u.pc_username)} / <span data-pw="${esc(u.pc_password)}" class="font-mono">••••••</span> <button data-showpw class="text-slate-400 hover:text-slate-600 align-middle">${icon('eye', 'w-3.5 h-3.5')}</button>` : DASH}</td>
         <td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}">${u.role}</span></td>
         <td class="py-2.5 px-4">${u.is_active ? '<span class="text-green-600 text-xs font-medium">Aktif</span>' : '<span class="text-slate-400 text-xs">Nonaktif</span>'}</td>
@@ -1267,8 +1308,8 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
   <button id="btnAddUser" class="${btnPrimary}">${icon('plus')} Tambah User</button>
 </div>
 <div class="bg-white rounded-xl shadow-sm overflow-x-auto"><table class="w-full text-sm">
-<thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Nama</th><th class="py-2.5 px-4">Username</th><th class="py-2.5 px-4">Departement</th><th class="py-2.5 px-4">Login PC</th><th class="py-2.5 px-4">Role</th><th class="py-2.5 px-4">Status</th><th class="py-2.5 px-4">Aset</th><th class="py-2.5 px-4"></th></tr></thead>
-<tbody>${rows || '<tr><td colspan="8" class="py-8 text-center text-slate-400">Tidak ada user.</td></tr>'}</tbody></table></div>`;
+<thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Nama</th><th class="py-2.5 px-4">Username</th><th class="py-2.5 px-4">Departement</th><th class="py-2.5 px-4">Jabatan</th><th class="py-2.5 px-4">Login PC</th><th class="py-2.5 px-4">Role</th><th class="py-2.5 px-4">Status</th><th class="py-2.5 px-4">Aset</th><th class="py-2.5 px-4"></th></tr></thead>
+<tbody>${rows || '<tr><td colspan="9" class="py-8 text-center text-slate-400">Tidak ada user.</td></tr>'}</tbody></table></div>`;
     },
     bind() {
       const q = $('#uQ');
@@ -1280,15 +1321,18 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
           ${field('Username', `<input name="username" value="${esc(u ? u.username : '')}" required class="${inputCls}">`)}
           ${field('Email', `<input name="email" type="email" value="${esc(u ? u.email : '')}" class="${inputCls}">`)}
           ${field('Departement', `<select name="department" class="${inputCls}">${options(db.departments, u ? u.department : '', '—')}</select>`)}
+          ${field('Jabatan', `<input name="position" list="posList" maxlength="100" value="${esc(u ? u.position || '' : '')}" placeholder="Contoh: Staff, Supervisor, Manager" class="${inputCls}"><datalist id="posList">${[...new Set(db.users.map((x) => x.position).filter(Boolean))].sort().map((p) => `<option value="${esc(p)}"></option>`).join('')}</datalist>`)}
           ${field('Password Login' + (u ? ' <span class="text-xs text-slate-400">(kosongkan jika tidak diubah)</span>' : ''), `<input name="password" type="password" ${u ? '' : 'required'} class="${inputCls}">`)}
           ${field('Role', `<select name="role" class="${inputCls}">${options([{ value: 'user', label: 'User' }, { value: 'admin', label: 'Admin' }], u ? u.role : 'user')}</select>`)}
           ${field('Username PC', `<input name="pc_username" value="${esc(u ? u.pc_username : '')}" class="${inputCls}">`)}
-          ${field('Password PC', `<input name="pc_password" value="${esc(u ? u.pc_password : '')}" class="${inputCls}">`)}
+          ${field('Password PC', `<div class="flex gap-2"><input name="pc_password" id="uPcPw" value="${esc(u ? u.pc_password : '')}" class="${inputCls} font-mono"><button type="button" id="btnGenPcPw" class="shrink-0 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 text-xs font-medium">Generate</button></div>
+            <p class="text-xs text-slate-400 mt-1">Pola otomatis: 3 huruf + angka + 1 simbol, mis. kMa249$. Boleh diketik sendiri.</p>`)}
         </div>
         <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" ${!u || u.is_active ? 'checked' : ''} class="rounded"> Aktif</label>
-        <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
+        <div class="modal-actions flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
         wide: true,
         onMount(root) {
+          $('#btnGenPcPw', root).onclick = () => { $('#uPcPw', root).value = genPcPassword(7); };
           $('#userForm', root).onsubmit = (e) => {
             e.preventDefault();
             const d = formData(e.target);
@@ -1296,7 +1340,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
             if (db.users.some((x) => x.username === uname && (!u || x.id !== u.id))) { toast('Username sudah dipakai.', false); return; }
             if (u && u.id === sessionUserId && d.role !== 'admin') { toast('Tidak bisa menurunkan role akun yang sedang dipakai.', false); return; }
             const rec = Object.assign(u || { id: nextId(db.users), created_at: new Date().toISOString() }, {
-              full_name: d.full_name.trim(), username: uname, email: d.email.trim(), department: d.department, role: d.role,
+              full_name: d.full_name.trim(), username: uname, email: d.email.trim(), department: d.department, position: (d.position || '').trim(), role: d.role,
               pc_username: d.pc_username.trim(), pc_password: d.pc_password.trim(), is_active: d.is_active ? 1 : 0,
             });
             if (d.password) rec.demo_password = d.password;
@@ -1390,10 +1434,10 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     const rows = list.map((t) => {
       const st = ticketStatus(t); const rep = userById(t.reported_by) || {}; const a = assetById(t.asset_id); const h = userById(t.handled_by);
       return `<tr class="border-b last:border-0 hover:bg-slate-50 align-top">
-        <td class="py-2.5 px-4 font-medium whitespace-nowrap"><a href="#" data-open="${t.id}" class="text-blue-600 hover:underline">${esc(t.ticket_number)}</a><div class="text-xs text-slate-400 font-normal">${fmtDateTime(t.created_at)}</div></td>
-        <td class="py-2.5 px-4 whitespace-nowrap">${esc(rep.full_name || DASH)}<div class="text-xs text-slate-400">${esc(rep.department || '')}</div></td>
+        <td class="py-2.5 px-4 font-medium whitespace-nowrap"><a href="#" data-open="${t.id}" class="text-blue-600 hover:underline">${esc(t.ticket_number)}</a><div class="text-xs text-slate-400 font-normal">Dibuat: ${fmtDateTime(t.created_at)}</div>${doneAt(t) ? `<div class="text-xs text-green-700 font-normal">Selesai: <b>${fmtDateTime(doneAt(t))}</b></div><div class="text-xs text-slate-400 font-normal">Lama: ${durationLabel(t.created_at, doneAt(t))}</div>` : ''}</td>
+        <td class="py-2.5 px-4 whitespace-nowrap">${esc(rep.full_name || DASH)}<div class="text-xs text-slate-400">${esc(rep.department || '')}</div>${a && a.location ? `<div class="text-xs text-slate-400">Lokasi: ${esc(a.location)}</div>` : ''}</td>
         <td class="py-2.5 px-4 whitespace-nowrap">${a ? `<a href="#" data-asset="${a.id}" class="hover:underline">${esc(a.asset_number)}</a>` : DASH}</td>
-        <td class="py-2.5 px-4 min-w-[14rem]">${esc(t.problem_detail)}${workOf(t.id) && workOf(t.id).work_detail ? `<div class="text-xs text-slate-400 mt-1">✔ ${esc(workOf(t.id).work_detail)}</div>` : ''}</td>
+        <td class="py-2.5 px-4 min-w-[14rem]">${esc(t.problem_detail)}${ticketHistoryHtml(t)}</td>
         <td class="py-2.5 px-4 whitespace-nowrap">${esc(h ? h.full_name : DASH)}</td>
         <td class="py-2.5 px-4">${st === 'Dibatalkan' ? `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[st]}">${st}</span>` :
           `<select data-status="${t.id}" class="border rounded-lg px-2 py-1 text-xs font-medium ${TICKET_BADGE[st]}">${options(['Menunggu', 'Proses', 'Selesai'], st)}</select>`}</td>
@@ -1421,8 +1465,8 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       save(); render(); toast(`Status ${t.ticket_number} → ${s.value}`);
     }));
     if ($('#btnExportT')) $('#btnExportT').onclick = () => {
-      const rows = [['No. Tiket', 'Tanggal', 'Pelapor', 'Departement', 'Aset', 'Rincian Masalah', 'Rincian Pengerjaan', 'Hasil Pengecekan', 'Ditangani', 'Status']];
-      db.tickets.forEach((t) => { const r = userById(t.reported_by) || {}; const w = workOf(t.id) || {}; rows.push([t.ticket_number, fmtDateTime(t.created_at), r.full_name, r.department, (assetById(t.asset_id) || {}).asset_number, t.problem_detail, w.work_detail, w.asset_check, (userById(t.handled_by) || {}).full_name, ticketStatus(t)]); });
+      const rows = [['No. Tiket', 'Tanggal Dibuat', 'Tanggal Selesai', 'Pelapor', 'Departement', 'Aset', 'Rincian Masalah', 'Rincian Pengerjaan', 'Hasil Pengecekan', 'Ditangani', 'Status']];
+      db.tickets.forEach((t) => { const r = userById(t.reported_by) || {}; const w = workOf(t.id) || {}; rows.push([t.ticket_number, fmtDateTime(t.created_at), doneAt(t) ? fmtDateTime(doneAt(t)) : '', r.full_name, r.department, (assetById(t.asset_id) || {}).asset_number, t.problem_detail, w.work_detail, w.asset_check, (userById(t.handled_by) || {}).full_name, ticketStatus(t)]); });
       downloadCsv('tiket_it_demo.csv', rows);
     };
   }
@@ -1617,17 +1661,14 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
           ${field('Diberikan kepada', `<select name="user_id" required class="${inputCls}">${options(users.map((u) => ({ value: u.id, label: `${u.full_name} (${u.department || '-'})` })), '', '— Pilih user —')}</select>`)}
           ${field('Lokasi baru <span class="text-xs text-slate-400">(opsional)</span>', `<input name="location" value="${esc(a.location || '')}" class="${inputCls}">`)}
           <p class="text-xs text-slate-500">Status aset akan berubah menjadi <b>Digunakan</b>; Departement &amp; email ikut data user.</p>
-          <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Serahkan</button></div></form>`, {
+          <div class="modal-actions flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Serahkan</button></div></form>`, {
           onMount(root) {
             $('#hoForm', root).onsubmit = (e) => {
               e.preventDefault();
               const d = formData(e.target);
               const u = userById(+d.user_id);
-              db.assetOwners = db.assetOwners.filter((o) => o.asset_id !== a.id);
-              db.assetOwners.push({ asset_id: a.id, user_id: u.id });
-              Object.assign(a, { status: 'Digunakan', department: u.department || '', owner_email: u.email || '', location: d.location.trim() });
-              if (/laptop|pc/i.test(a.category)) Object.assign(a, { pc_username: u.pc_username || '', pc_password: u.pc_password || '' });
-              save(); closeModal(); render(); toast(`${a.asset_number} diserahkan ke ${u.full_name}.`);
+              const m = recordMutation(a, u.id, { reason: 'handover', location: d.location.trim() }); // riwayatnya masuk ke menu Mutasi Aset
+              save(); closeModal(); render(); toast(`${a.asset_number} diserahkan ke ${u.full_name} (${m.number}).`);
             };
           },
         });
@@ -1654,7 +1695,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
             ${field('Catatan <span class="text-xs text-slate-400">(opsional)</span>', `<input name="note" class="${inputCls}">`, 'sm:col-span-2')}
           </div>
           <p id="trxErr" class="hidden text-sm bg-red-50 text-red-700 rounded-lg px-3 py-2"></p>
-          <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
+          <div class="modal-actions flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
           wide: true,
           onMount(root) {
             const cat = $('#trxCat', root);
@@ -1771,6 +1812,531 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
       };
     },
   };
+
+  // ==================================================================
+  // FITUR BARU (Okt 2026): Jabatan, Mutasi Aset, Aset Rusak, Export Audit,
+  // Ganti Password PC, Signature Email, Ganti Password login
+  // ==================================================================
+  const positionsOf = (assetId) => {
+    const list = ownersOf(assetId).map((o) => o.position || '');
+    return list.some(Boolean) ? list.map((p) => p || DASH).join(', ') : '';
+  };
+  const accItems = (a) => (a.accessory_items || []);
+  const accText = (a) => (accItems(a).length ? accItems(a).map((x) => x.name + (x.brand ? ' (' + x.brand + ')' : '')).join(', ') : (a.accessories || ''));
+  const logsOf = (ticketId) => db.ticketLogs.filter((l) => l.ticket_id === ticketId).sort((x, y) => x.changed_at.localeCompare(y.changed_at));
+  // Waktu selesai = saat tiket pertama kali menjadi Selesai sejak terakhir berstatus lain.
+  function doneAt(t) {
+    if (isCancelled(t) || t.status !== 'Selesai') return '';
+    let at = '';
+    logsOf(t.id).forEach((l) => { if (l.status !== 'Selesai') at = ''; else if (!at) at = l.changed_at; });
+    return at || t.resolved_at || '';
+  }
+  function durationLabel(from, to) {
+    const sec = Math.max(0, (new Date(to) - new Date(from)) / 1000);
+    const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+    if (d > 0) return d + ' hari' + (h ? ' ' + h + ' jam' : '');
+    if (h > 0) return h + ' jam' + (m ? ' ' + m + ' menit' : '');
+    return Math.max(1, m) + ' menit';
+  }
+
+  // ---- Generator Password PC: 3 huruf (ada besar & kecil) + angka + 1 simbol di akhir, mis. kMa249$
+  const PCPW_LENGTHS = [6, 7, 8, 10, 12];
+  function genPcPassword(len) {
+    len = Math.max(6, len || 7);
+    const up = 'ABCDEFGHJKMNPQRSTUVWXYZ', lo = 'abcdefghijkmnpqrstuvwxyz', dg = '23456789', sy = '!@#$%&*?';
+    const pick = (s) => s[Math.floor(Math.random() * s.length)];
+    let letters;
+    do { letters = [0, 1, 2].map(() => pick(Math.random() < 0.5 ? up : lo)).join(''); } while (!/[A-Z]/.test(letters) || !/[a-z]/.test(letters));
+    let digits = ''; for (let i = 0; i < len - 4; i++) digits += pick(dg);
+    return letters + digits + pick(sy);
+  }
+  function genUniquePcPassword(len, used) {
+    let p; let n = 0;
+    do { p = genPcPassword(len); n++; } while (used.has(p) && n < 500);
+    used.add(p);
+    return p;
+  }
+  const pcPwOk = (p) => /^[A-Za-z]{3}\d+[^A-Za-z0-9]$/.test(p) && p.length >= 6 && /[A-Z]/.test(p) && /[a-z]/.test(p);
+
+  // ---- Ganti Password login (menu di ikon user pojok kanan atas)
+  const defaultPassword = (u) => (u.username === 'admin' ? 'admin123' : u.username === 'user' ? 'user123' : 'demo123');
+  function changePasswordModal() {
+    const u = currentUser();
+    openModal('Ganti Password Login', `<form id="cpForm" class="space-y-3">
+      <p class="text-sm text-slate-500">Kosongkan password baru jika ingin tetap memakai password yang diberikan admin.</p>
+      ${field('Password sekarang', `<input name="old" type="password" autocomplete="off" class="${inputCls}">`)}
+      ${field('Password baru <span class="text-xs text-slate-400">(minimal 6 karakter)</span>', `<input name="new1" type="password" autocomplete="off" class="${inputCls}" placeholder="Kosongkan jika tidak ingin mengganti">`)}
+      ${field('Ulangi password baru', `<input name="new2" type="password" autocomplete="off" class="${inputCls}">`)}
+      <p class="text-xs text-slate-400">Password akun ini sekarang: <b>${esc(u.demo_password || defaultPassword(u))}</b> (ditampilkan hanya di versi demo).</p>
+      <div id="cpErr" class="hidden text-sm bg-red-50 text-red-600 border border-red-200 rounded-lg px-3 py-2"></div>
+      <div class="modal-actions flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
+      onMount(root) {
+        $('#cpForm', root).onsubmit = (e) => {
+          e.preventDefault();
+          const d = formData(e.target); const cur = u.demo_password || defaultPassword(u);
+          const err = (m) => { const el = $('#cpErr', root); el.textContent = m; el.classList.remove('hidden'); };
+          if (!d.new1 && !d.new2) { closeModal(); toast('Tidak ada perubahan. Password tetap seperti semula.'); return; }
+          if (d.old !== cur) return err('Password sekarang salah.');
+          if (d.new1.length < 6) return err('Password baru minimal 6 karakter.');
+          if (d.new1 !== d.new2) return err('Ulangi password baru tidak sama.');
+          if (d.new1 === cur) return err('Password baru sama dengan password sekarang.');
+          u.demo_password = d.new1; save(); closeModal(); toast('Password login berhasil diganti.');
+        };
+      },
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Mutasi Aset
+  // ------------------------------------------------------------------
+  const MUT_REASONS = { rotation: 'Rotasi / pindah bagian', resign: 'Karyawan resign / keluar', replace: 'Penggantian perangkat', handover: 'Serah terima dari stok', other: 'Lainnya' };
+  function newMutationNumber() {
+    const ym = todayStr().slice(0, 7).replace('-', '');
+    let n = db.mutations.filter((m) => m.number.startsWith('MUT-' + ym)).length + 1; let num;
+    do { num = `MUT-${ym}-${String(n).padStart(4, '0')}`; n++; } while (db.mutations.some((m) => m.number === num));
+    return num;
+  }
+  // Catat mutasi + pindahkan kepemilikan aset. toUserId null = dikembalikan ke stok.
+  function recordMutation(a, toUserId, { reason = 'rotation', condition = 'Baik', note = '', location } = {}) {
+    const from = ownersOf(a.id); const to = toUserId ? userById(toUserId) : null;
+    const m = {
+      id: nextId(db.mutations), number: newMutationNumber(), date: todayStr(), asset_id: a.id, asset_number: a.asset_number, asset_category: a.category, asset_name: a.device_name || '',
+      serial_number: a.serial_number || '', accessories: accText(a),
+      from_names: from.map((u) => u.full_name).join(', '), from_department: a.department || '', from_location: a.location || '',
+      to_names: to ? to.full_name : '', to_department: to ? (to.department || '') : '', to_location: location !== undefined ? location : (a.location || ''),
+      reason, condition, note, by: (currentUser() || {}).full_name || '',
+    };
+    db.mutations.push(m);
+    db.assetOwners = db.assetOwners.filter((o) => o.asset_id !== a.id);
+    if (to) {
+      db.assetOwners.push({ asset_id: a.id, user_id: to.id });
+      Object.assign(a, { status: 'Digunakan', department: to.department || '', owner_email: to.email || '', location: m.to_location });
+      if (/laptop|pc/i.test(a.category)) Object.assign(a, { pc_username: to.pc_username || '', pc_password: to.pc_password || '' });
+    } else {
+      Object.assign(a, { status: 'Stok', department: '', owner_email: '', pc_username: '', pc_password: '', location: m.to_location });
+    }
+    return m;
+  }
+  function printMutation(m) {
+    const w = window.open('', '_blank');
+    if (!w) { toast('Pop-up diblokir browser. Izinkan pop-up untuk mencetak.', false); return; }
+    const row = (k, v) => `<tr><td style="padding:5px 8px;border:1px solid #ccc;width:34%;color:#444">${k}</td><td style="padding:5px 8px;border:1px solid #ccc">${esc(v || DASH)}</td></tr>`;
+    const isTablet = /tablet/i.test(m.asset_category);
+    const sign = (t, n) => `<td style="width:33%;text-align:center;vertical-align:top;padding:0 8px">${t}<div style="height:70px"></div><div style="border-top:1px solid #333;padding-top:4px">${esc(n)}</div></td>`;
+    w.document.write(`<!DOCTYPE html><html><head><title>${esc(m.number)}</title><meta charset="utf-8"></head>
+      <body style="font-family:Arial,sans-serif;font-size:13px;max-width:720px;margin:24px auto;color:#111">
+      <div style="text-align:center;font-size:17px;font-weight:bold">BERITA ACARA MUTASI ASET</div>
+      <div style="text-align:center;color:#555;margin-bottom:14px">${esc(appName())} · No. ${esc(m.number)} · ${fmtDate(m.date)}</div>
+      <div style="font-weight:bold;margin:10px 0 4px">Data Aset</div>
+      <table style="width:100%;border-collapse:collapse">${row('Nomor Aset', m.asset_number)}${row('Jenis Aset', m.asset_category)}${row('Nama Perangkat', m.asset_name)}
+      ${isTablet ? row('Serial Number', m.serial_number) : ''}${row('Aksesoris', m.accessories)}${row('Kondisi', m.condition)}</table>
+      <table style="width:100%;border-collapse:collapse;margin-top:12px"><tr>
+        <td style="width:50%;vertical-align:top;padding-right:6px"><div style="font-weight:bold;margin-bottom:4px">Dari</div><table style="width:100%;border-collapse:collapse">${row('Pengguna', m.from_names || 'Stok IT')}${row('Departement', m.from_department)}${row('Lokasi', m.from_location)}</table></td>
+        <td style="width:50%;vertical-align:top;padding-left:6px"><div style="font-weight:bold;margin-bottom:4px">Kepada</div><table style="width:100%;border-collapse:collapse">${row('Pengguna', m.to_names || 'Stok IT')}${row('Departement', m.to_department)}${row('Lokasi', m.to_location)}</table></td>
+      </tr></table>
+      <p><b>Alasan:</b> ${esc(MUT_REASONS[m.reason] || m.reason)}${m.note ? '<br><b>Catatan:</b> ' + esc(m.note) : ''}</p>
+      <table style="width:100%;margin-top:28px"><tr>${sign('Yang Menyerahkan,', m.from_names || 'IT Support')}${sign('Yang Menerima,', m.to_names || 'IT Support')}${sign('Mengetahui,', 'Manager HR-GA')}</tr></table>
+      <p style="color:#999;font-size:11px;margin-top:24px">Dokumen ini dibuat otomatis oleh ${esc(appName())} (demo). ${esc(COPYRIGHT)}</p>
+      <script>window.onload=function(){window.print()}<\/script></body></html>`);
+    w.document.close();
+  }
+  function mutationForm(presetAssetId) {
+    const list = db.assets.filter((a) => a.status !== 'Tidak Digunakan').sort((x, y) => x.asset_number.localeCompare(y.asset_number));
+    const users = db.users.filter((u) => u.is_active).sort((x, y) => x.full_name.localeCompare(y.full_name));
+    openModal('Buat Mutasi Aset', `<form id="mutForm" class="space-y-3">
+      ${field('Aset', `<select name="asset_id" id="mutAsset" required class="${inputCls}">${options(list.map((a) => ({ value: a.id, label: `${a.asset_number} — ${a.device_name || a.category} (${ownersOf(a.id).map((o) => o.full_name).join(', ') || 'Stok'})` })), presetAssetId || '', '— Pilih aset —')}</select>`)}
+      <div id="mutFrom" class="rounded-lg bg-slate-50 p-3 text-sm text-slate-600"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        ${field('Dipindahkan kepada', `<select name="to" class="${inputCls}">${options(users.map((u) => ({ value: u.id, label: `${u.full_name} (${u.department || '-'})` })), '', '— Kembalikan ke Stok IT —')}</select>`)}
+        ${field('Alasan', `<select name="reason" class="${inputCls}">${options(Object.keys(MUT_REASONS).filter((k) => k !== 'handover').map((k) => ({ value: k, label: MUT_REASONS[k] })), 'rotation')}</select>`)}
+        ${field('Lokasi baru', `<input name="location" id="mutLoc" class="${inputCls}">`)}
+        ${field('Kondisi aset', `<select name="condition" class="${inputCls}">${options(['Baik', 'Baik dengan catatan', 'Perlu perbaikan'], 'Baik')}</select>`)}
+      </div>
+      ${field('Catatan', `<textarea name="note" rows="2" class="${inputCls}" placeholder="mis. Karyawan resign, aset dikembalikan ke IT"></textarea>`)}
+      <p class="text-xs text-slate-500">Kepemilikan di menu Aset ikut berubah otomatis, dan Berita Acara bisa dicetak dari daftar mutasi.</p>
+      <div class="modal-actions flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan Mutasi</button></div></form>`, {
+      wide: true,
+      onMount(root) {
+        const sel = $('#mutAsset', root);
+        const info = () => {
+          const a = assetById(+sel.value);
+          $('#mutFrom', root).innerHTML = a ? `<b>Dari:</b> ${esc(ownersOf(a.id).map((o) => o.full_name).join(', ') || 'Stok IT')} · ${esc(a.department || DASH)} · ${esc(a.location || DASH)}<br><b>Aksesoris:</b> ${esc(accText(a) || DASH)}` : 'Pilih aset untuk melihat pengguna sekarang.';
+          if (a) $('#mutLoc', root).value = a.location || '';
+        };
+        sel.onchange = info; info();
+        $('#mutForm', root).onsubmit = (e) => {
+          e.preventDefault();
+          const d = formData(e.target); const a = assetById(+d.asset_id);
+          if (!a) return;
+          const cur = ownersOf(a.id).map((o) => o.id);
+          if (d.to && cur.length === 1 && cur[0] === +d.to) { toast('Aset ini sudah dipakai user tersebut.', false); return; }
+          if (!d.to && !cur.length) { toast('Aset ini sudah berada di Stok IT.', false); return; }
+          const m = recordMutation(a, d.to ? +d.to : null, { reason: d.reason, condition: d.condition, note: d.note.trim(), location: d.location.trim() });
+          save(); closeModal(); render(); toast(`Mutasi ${m.number} tersimpan.`);
+        };
+      },
+    });
+  }
+  PAGES.mutations = {
+    render() {
+      const list = [...db.mutations].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      const month = todayStr().slice(0, 7);
+      const card = (l, v, c) => `<div class="bg-white rounded-xl shadow-sm p-4 border-l-4 ${c}"><p class="text-xs text-slate-500">${l}</p><p class="text-2xl font-bold text-slate-800 mt-1">${v}</p></div>`;
+      return `<p class="text-sm text-slate-500 mb-4 max-w-3xl">Catat pemindahan aset dari pengguna lama ke pengguna baru (atau dikembalikan ke Stok IT). Setiap mutasi punya nomor dan Berita Acara yang bisa dicetak.</p>
+<div class="flex flex-wrap gap-2 mb-4"><button id="btnAddMut" class="${btnPrimary}">${icon('transfer')} Buat Mutasi</button>
+  ${ARTIFACT ? '' : `<button id="btnExportMut" class="${btnGhost}">${icon('download')} Export CSV</button>`}</div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+  ${card('Total mutasi', list.length, 'border-blue-500')}${card('Mutasi bulan ini', list.filter((m) => m.date.startsWith(month)).length, 'border-green-500')}
+  ${card('Dipindahkan ke user', list.filter((m) => m.to_names).length, 'border-amber-500')}${card('Dikembalikan ke stok', list.filter((m) => !m.to_names).length, 'border-slate-400')}</div>
+<div class="bg-white rounded-xl shadow-sm table-sticky overflow-x-auto"><table class="w-full text-sm">
+<thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">No. Mutasi</th><th class="py-2.5 px-4">Tanggal</th><th class="py-2.5 px-4">Aset</th><th class="py-2.5 px-4">Dari</th><th class="py-2.5 px-4">Kepada</th><th class="py-2.5 px-4">Alasan</th><th class="py-2.5 px-4 text-right">Berita Acara</th></tr></thead>
+<tbody>${list.map((m) => `<tr class="border-b last:border-0 hover:bg-slate-50 align-top">
+  <td class="py-2.5 px-4 font-medium whitespace-nowrap text-blue-700">${esc(m.number)}</td>
+  <td class="py-2.5 px-4 whitespace-nowrap">${fmtDate(m.date)}<div class="text-xs text-slate-400">${esc(m.by)}</div></td>
+  <td class="py-2.5 px-4"><div class="font-medium whitespace-nowrap">${esc(m.asset_number)}</div><div class="text-xs text-slate-400">${esc(m.asset_category)} · ${esc(m.asset_name)}</div></td>
+  <td class="py-2.5 px-4">${esc(m.from_names || 'Stok IT')}<div class="text-xs text-slate-400">${esc([m.from_department, m.from_location].filter(Boolean).join(' · '))}</div></td>
+  <td class="py-2.5 px-4">${m.to_names ? esc(m.to_names) : '<span class="italic text-slate-500">Stok IT</span>'}<div class="text-xs text-slate-400">${esc([m.to_department, m.to_location].filter(Boolean).join(' · '))}</div></td>
+  <td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${m.reason === 'resign' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}">${esc(MUT_REASONS[m.reason] || m.reason)}</span>${m.note ? `<div class="text-xs text-slate-500 mt-1 max-w-xs">${esc(m.note)}</div>` : ''}</td>
+  <td class="py-2.5 px-4 text-right">${ARTIFACT ? '<span class="text-xs text-slate-400">cetak tersedia di demo web</span>' : `<button data-print-mut="${m.id}" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium">${icon('printer', 'w-3.5 h-3.5')} Cetak</button>`}</td></tr>`).join('') || '<tr><td colspan="7" class="py-8 text-center text-slate-400">Belum ada mutasi.</td></tr>'}</tbody></table></div>`;
+    },
+    bind() {
+      $('#btnAddMut').onclick = () => mutationForm(null);
+      $$('[data-print-mut]').forEach((b) => (b.onclick = () => printMutation(db.mutations.find((m) => m.id === +b.dataset.printMut))));
+      if ($('#btnExportMut')) $('#btnExportMut').onclick = () => downloadCsv('mutasi_aset_demo.csv', [['No. Mutasi', 'Tanggal', 'No. Aset', 'Jenis', 'Nama Perangkat', 'Dari', 'Dept. Asal', 'Kepada', 'Dept. Tujuan', 'Alasan', 'Kondisi', 'Catatan']].concat(db.mutations.map((m) => [m.number, m.date, m.asset_number, m.asset_category, m.asset_name, m.from_names || 'Stok IT', m.from_department, m.to_names || 'Stok IT', m.to_department, MUT_REASONS[m.reason] || m.reason, m.condition, m.note])));
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Aset Rusak
+  // ------------------------------------------------------------------
+  const DMG_STATES = { broken: ['Rusak', 'bg-red-100 text-red-700'], repair: ['Sedang diperbaiki', 'bg-amber-100 text-amber-700'], fixed: ['Selesai diperbaiki', 'bg-green-100 text-green-700'], disposed: ['Dihapus / dibuang', 'bg-slate-200 text-slate-600'] };
+  function damageForm() {
+    const openIds = db.damages.filter((d) => d.state === 'broken' || d.state === 'repair').map((d) => d.asset_id);
+    const list = db.assets.filter((a) => !openIds.includes(a.id)).sort((x, y) => x.asset_number.localeCompare(y.asset_number));
+    openModal('Tandai Aset Rusak', `<form id="dmgForm" class="space-y-3">
+      ${field('Aset', `<select name="asset_id" required class="${inputCls}">${options(list.map((a) => ({ value: a.id, label: `${a.asset_number} — ${a.device_name || a.category}` })), '', '— Pilih aset —')}</select>`)}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        ${field('Tanggal rusak', `<input type="date" name="date" value="${todayStr()}" required class="${inputCls}">`)}
+        ${field('Lokasi penyimpanan', `<input name="storage" class="${inputCls}" placeholder="mis. Gudang IT">`)}
+      </div>
+      ${field('Kerusakan', `<textarea name="issue" rows="3" required class="${inputCls}" placeholder="mis. Motherboard mati total setelah listrik padam"></textarea>`)}
+      <p class="text-xs text-slate-500">Aset dilepas dari penggunanya dan statusnya menjadi <b>Tidak Digunakan</b> sampai selesai diperbaiki.</p>
+      <div class="modal-actions flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
+      onMount(root) {
+        $('#dmgForm', root).onsubmit = (e) => {
+          e.preventDefault();
+          const d = formData(e.target); const a = assetById(+d.asset_id); if (!a) return;
+          db.damages.push({ id: nextId(db.damages), asset_id: a.id, asset_number: a.asset_number, asset_category: a.category, asset_name: a.device_name || '', date: d.date, issue: d.issue.trim(), storage: d.storage.trim(),
+            last_user: ownersOf(a.id).map((o) => o.full_name).join(', '), last_department: a.department || '', prev_status: a.status, state: 'broken', note: '' });
+          db.assetOwners = db.assetOwners.filter((o) => o.asset_id !== a.id);
+          Object.assign(a, { status: 'Tidak Digunakan', department: '', owner_email: '', pc_username: '', pc_password: '' });
+          save(); closeModal(); render(); toast(`${a.asset_number} dicatat sebagai aset rusak.`);
+        };
+      },
+    });
+  }
+  PAGES.damages = {
+    render() {
+      const list = [...db.damages].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      const count = (s) => list.filter((d) => d.state === s).length;
+      const card = (l, v, c) => `<div class="bg-white rounded-xl shadow-sm p-4 border-l-4 ${c}"><p class="text-xs text-slate-500">${l}</p><p class="text-2xl font-bold text-slate-800 mt-1">${v}</p></div>`;
+      return `<p class="text-sm text-slate-500 mb-4 max-w-3xl">Daftar aset yang rusak, tempat penyimpanannya, dan perkembangan perbaikannya. Aset rusak dipisahkan dari daftar aset yang dipakai.</p>
+<div class="flex flex-wrap gap-2 mb-4"><button id="btnAddDmg" class="${btnPrimary}">${icon('alert')} Tandai Aset Rusak</button></div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">${card('Rusak', count('broken'), 'border-red-500')}${card('Sedang diperbaiki', count('repair'), 'border-amber-500')}${card('Selesai diperbaiki', count('fixed'), 'border-green-500')}${card('Dihapus / dibuang', count('disposed'), 'border-slate-400')}</div>
+<div class="bg-white rounded-xl shadow-sm table-sticky overflow-x-auto"><table class="w-full text-sm">
+<thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-4">Aset</th><th class="py-2.5 px-4">Tanggal Rusak</th><th class="py-2.5 px-4">Kerusakan</th><th class="py-2.5 px-4">Lokasi Simpan</th><th class="py-2.5 px-4">Pengguna Terakhir</th><th class="py-2.5 px-4">Status</th></tr></thead>
+<tbody>${list.map((d) => `<tr class="border-b last:border-0 hover:bg-slate-50 align-top">
+  <td class="py-2.5 px-4"><div class="font-medium whitespace-nowrap">${esc(d.asset_number)}</div><div class="text-xs text-slate-400">${esc(d.asset_category)} · ${esc(d.asset_name)}</div></td>
+  <td class="py-2.5 px-4 whitespace-nowrap">${fmtDate(d.date)}</td><td class="py-2.5 px-4 min-w-[14rem]">${esc(d.issue)}</td>
+  <td class="py-2.5 px-4">${esc(d.storage || DASH)}</td><td class="py-2.5 px-4">${esc(d.last_user || DASH)}<div class="text-xs text-slate-400">${esc(d.last_department || '')}</div></td>
+  <td class="py-2.5 px-4"><select data-dmg="${d.id}" class="border rounded-lg px-2 py-1 text-xs font-medium ${DMG_STATES[d.state][1]}">${options(Object.keys(DMG_STATES).map((k) => ({ value: k, label: DMG_STATES[k][0] })), d.state)}</select></td></tr>`).join('') || '<tr><td colspan="6" class="py-8 text-center text-slate-400">Tidak ada aset rusak.</td></tr>'}</tbody></table></div>`;
+    },
+    bind() {
+      $('#btnAddDmg').onclick = () => damageForm();
+      $$('[data-dmg]').forEach((s) => (s.onchange = () => {
+        const d = db.damages.find((x) => x.id === +s.dataset.dmg); const a = assetById(d.asset_id);
+        d.state = s.value;
+        if (a) a.status = s.value === 'fixed' ? 'Stok' : 'Tidak Digunakan';
+        save(); render(); toast(s.value === 'fixed' ? 'Aset selesai diperbaiki dan kembali ke Stok.' : 'Status aset rusak diperbarui.');
+      }));
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Export Audit: pilih data & kolom sendiri
+  // ------------------------------------------------------------------
+  const col = (label, get, def = true, sensitive = false) => ({ label, get, def, sensitive });
+  const AUDIT = {
+    assets: { label: 'Aset', rows: () => db.assets, filters: true, cols: {
+      asset_number: col('ID Aset', (a) => a.asset_number), category: col('Jenis Aset', (a) => a.category), device_name: col('Nama Perangkat', (a) => a.device_name),
+      owners: col('Pemilik / Pengguna', (a) => ownersOf(a.id).map((o) => o.full_name).join(', ')), position: col('Jabatan', (a) => positionsOf(a.id)),
+      department: col('Departement', (a) => a.department), email: col('Email Pengguna', (a) => a.owner_email, false), ip: col('IP Address', (a) => a.ip_address),
+      hostname: col('Hostname', (a) => a.hostname, false), location: col('Lokasi', (a) => a.location), status: col('Status', (a) => a.status),
+      serial: col('Serial Number', (a) => a.serial_number, false), processor: col('Processor', (a) => a.processor, false), ram: col('RAM', (a) => a.ram, false), storage: col('Penyimpanan', (a) => a.storage, false),
+      os: col('OS', (a) => a.os_name, false), os_status: col('Status OS', (a) => a.os_status, false), software: col('Software', (a) => (a.software || []).map((s) => s.name).join(', '), false),
+      accessories: col('Aksesoris', (a) => accText(a), false), purchase: col('Tanggal Pembelian', (a) => a.purchase_date, false),
+      pc_username: col('Username PC', (a) => a.pc_username, false, true), pc_password: col('Password PC', (a) => a.pc_password, false, true),
+    } },
+    users: { label: 'User', rows: () => db.users, cols: {
+      full_name: col('Nama Lengkap', (u) => u.full_name), username: col('Username', (u) => u.username), email: col('Email', (u) => u.email), department: col('Departement', (u) => u.department),
+      position: col('Jabatan', (u) => u.position || ''), role: col('Role', (u) => (u.role === 'admin' ? 'Admin' : 'User')), active: col('Aktif', (u) => (u.is_active ? 'Ya' : 'Tidak')),
+      asset_count: col('Jumlah Aset', (u) => assetsOfUser(u.id).length), asset_list: col('Daftar Aset', (u) => assetsOfUser(u.id).map((a) => a.asset_number).join(', ')),
+      pc_username: col('Username PC', (u) => u.pc_username, false, true), pc_password: col('Password PC', (u) => u.pc_password, false, true),
+    } },
+    tickets: { label: 'Ticketing IT', rows: () => [...db.tickets].sort((a, b) => b.created_at.localeCompare(a.created_at)), cols: {
+      number: col('No. Tiket', (t) => t.ticket_number), created: col('Tanggal Dibuat', (t) => fmtDateTime(t.created_at)), done: col('Tanggal Selesai', (t) => (doneAt(t) ? fmtDateTime(doneAt(t)) : '')),
+      reporter: col('Pelapor', (t) => (userById(t.reported_by) || {}).full_name), department: col('Departement', (t) => (userById(t.reported_by) || {}).department),
+      asset: col('Aset', (t) => (assetById(t.asset_id) || {}).asset_number), problem: col('Rincian Masalah', (t) => t.problem_detail), work: col('Rincian Pengerjaan', (t) => (workOf(t.id) || {}).work_detail, false),
+      check: col('Hasil Pengecekan', (t) => (workOf(t.id) || {}).asset_check, false), handler: col('Ditangani', (t) => (userById(t.handled_by) || {}).full_name), status: col('Status', (t) => ticketStatus(t)),
+    } },
+    mutations: { label: 'Mutasi Aset', rows: () => db.mutations, cols: {
+      number: col('No. Mutasi', (m) => m.number), date: col('Tanggal', (m) => m.date), asset: col('No. Aset', (m) => m.asset_number), category: col('Jenis', (m) => m.asset_category),
+      from: col('Dari', (m) => m.from_names || 'Stok IT'), from_dept: col('Dept. Asal', (m) => m.from_department), to: col('Kepada', (m) => m.to_names || 'Stok IT'), to_dept: col('Dept. Tujuan', (m) => m.to_department),
+      reason: col('Alasan', (m) => MUT_REASONS[m.reason] || m.reason), condition: col('Kondisi', (m) => m.condition, false), note: col('Catatan', (m) => m.note, false),
+    } },
+    damages: { label: 'Aset Rusak', rows: () => db.damages, cols: {
+      asset: col('No. Aset', (d) => d.asset_number), category: col('Jenis', (d) => d.asset_category), name: col('Nama Perangkat', (d) => d.asset_name), date: col('Tanggal Rusak', (d) => d.date),
+      issue: col('Kerusakan', (d) => d.issue), storage: col('Lokasi Simpan', (d) => d.storage), last_user: col('Pengguna Terakhir', (d) => d.last_user), state: col('Status', (d) => DMG_STATES[d.state][0]),
+    } },
+    stock: { label: 'Stok Barang (Masuk / Keluar)', rows: () => [...db.stockTransactions].sort((a, b) => b.trx_date.localeCompare(a.trx_date)), cols: {
+      date: col('Tanggal', (t) => t.trx_date), type: col('Jenis', (t) => (t.type === 'in' ? 'Masuk' : 'Keluar')), category: col('Kategori', (t) => (db.stockCategories.find((c) => c.id === t.category_id) || {}).name),
+      item: col('Nama Barang', (t) => t.item_name), qty: col('Jumlah', (t) => t.qty), recipient: col('Diberikan Kepada', (t) => t.recipient_name), dept: col('Departement', (t) => t.recipient_department), note: col('Catatan', (t) => t.note, false),
+    } },
+  };
+  const auditUi = { ds: 'assets', cols: {}, cats: [], depts: [], status: '' };
+  const auditCols = () => { const ds = auditUi.ds; if (!auditUi.cols[ds]) auditUi.cols[ds] = Object.keys(AUDIT[ds].cols).filter((k) => AUDIT[ds].cols[k].def); return auditUi.cols[ds]; };
+  function auditData() {
+    const def = AUDIT[auditUi.ds]; let rows = def.rows();
+    if (def.filters) rows = rows.filter((a) => (!auditUi.cats.length || auditUi.cats.includes(a.category)) && (!auditUi.depts.length || auditUi.depts.includes(a.department)) && (!auditUi.status || a.status === auditUi.status));
+    const keys = Object.keys(def.cols).filter((k) => auditCols().includes(k));
+    return { head: keys.map((k) => def.cols[k].label), rows: rows.map((r) => keys.map((k) => { const v = def.cols[k].get(r); return v == null ? '' : v; })) };
+  }
+  PAGES.audit = {
+    render() {
+      const def = AUDIT[auditUi.ds]; const chosen = auditCols();
+      const tabs = Object.keys(AUDIT).map((k) => `<button data-ds="${k}" class="px-3 py-1.5 rounded-lg text-sm font-medium ${auditUi.ds === k ? 'bg-blue-600 text-white' : 'bg-white border text-slate-600'}">${esc(AUDIT[k].label)}</button>`).join('');
+      const chk = (name, val, on, label, extra = '') => `<label class="flex items-center gap-2 text-sm"><input type="checkbox" data-${name}="${esc(val)}" ${on ? 'checked' : ''} class="rounded"> <span>${esc(label)}</span>${extra}</label>`;
+      const data = auditData(); const hasSens = Object.keys(def.cols).some((k) => def.cols[k].sensitive && chosen.includes(k));
+      return `<p class="text-sm text-slate-500 mb-4 max-w-3xl">Pilih sumber data, centang kolom yang dibutuhkan auditor, lalu export. Fitur ini hanya membaca data dan tidak mengubah apa pun.</p>
+<div class="flex flex-wrap gap-2 mb-4">${tabs}</div>
+<div class="bg-white rounded-xl shadow-sm p-5 mb-4">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h3 class="font-semibold text-slate-700">1. Pilih kolom <span class="text-xs font-normal text-slate-400">(${chosen.length} / ${Object.keys(def.cols).length})</span></h3>
+    <span class="flex gap-3 text-xs"><button id="audAll" class="text-blue-600 hover:underline">Pilih semua</button><button id="audNone" class="text-blue-600 hover:underline">Kosongkan</button></span></div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">${Object.keys(def.cols).map((k) => chk('col', k, chosen.includes(k), def.cols[k].label, def.cols[k].sensitive ? ' <span class="text-[10px] font-semibold bg-amber-100 text-amber-800 rounded px-1.5">Sensitif</span>' : '')).join('')}</div>
+  ${hasSens ? '<p class="mt-3 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">Kolom sensitif (login PC) ikut dipilih. Pastikan file hasil export hanya diberikan kepada pihak yang berwenang.</p>' : ''}
+</div>
+${def.filters ? `<div class="bg-white rounded-xl shadow-sm p-5 mb-4"><h3 class="font-semibold text-slate-700 mb-1">2. Saring data <span class="text-xs font-normal text-slate-400">(opsional, kosong = semua)</span></h3>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+    <div><p class="text-xs text-slate-500 mb-1">Jenis Aset</p><div class="space-y-1">${db.categories.map((c) => chk('cat', c.name, auditUi.cats.includes(c.name), c.name)).join('')}</div></div>
+    <div><p class="text-xs text-slate-500 mb-1">Departement</p><div class="space-y-1 max-h-40 overflow-y-auto">${db.departments.map((d) => chk('dept', d, auditUi.depts.includes(d), d)).join('')}</div></div>
+    <div><p class="text-xs text-slate-500 mb-1">Status</p><select id="audStatus" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">${options(Object.keys(ASSET_STATUS), auditUi.status, 'Semua')}</select></div>
+  </div></div>` : ''}
+<div class="bg-white rounded-xl shadow-sm p-5">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h3 class="font-semibold text-slate-700">Pratinjau <span class="text-xs font-normal text-slate-400">(${data.rows.length} baris, tampil 8 pertama)</span></h3>
+    ${ARTIFACT ? '<span class="text-xs text-slate-400">Unduh file tersedia di demo web</span>' : `<button id="audExport" class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-sm font-medium">${icon('sheet')} Export (CSV)</button>`}</div>
+  ${data.head.length ? `<div class="overflow-x-auto border rounded-lg"><table class="w-full text-xs whitespace-nowrap"><thead><tr class="bg-green-700 text-white text-left">${data.head.map((h) => `<th class="py-2 px-3">${esc(h)}</th>`).join('')}</tr></thead>
+  <tbody>${data.rows.slice(0, 8).map((r) => `<tr class="border-t">${r.map((v) => `<td class="py-1.5 px-3">${esc(v)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${data.head.length}" class="py-6 text-center text-slate-400">Tidak ada data yang cocok.</td></tr>`}</tbody></table></div>` : '<p class="text-sm text-slate-400">Pilih minimal satu kolom.</p>'}
+  <p class="text-xs text-slate-400 mt-2">Di aplikasi asli hasilnya berupa file Excel (.xlsx).</p>
+</div>`;
+    },
+    bind() {
+      const keep = () => { const m = document.querySelector('main'); const y = m ? m.scrollTop : 0; render(); const n = document.querySelector('main'); if (n) n.scrollTop = y; };
+      $$('[data-ds]').forEach((b) => (b.onclick = () => { auditUi.ds = b.dataset.ds; render(); }));
+      const toggle = (arr, v, on) => { const i = arr.indexOf(v); if (on && i < 0) arr.push(v); if (!on && i >= 0) arr.splice(i, 1); };
+      $$('[data-col]').forEach((c) => (c.onchange = () => { toggle(auditCols(), c.dataset.col, c.checked); keep(); }));
+      $$('[data-cat]').forEach((c) => (c.onchange = () => { toggle(auditUi.cats, c.dataset.cat, c.checked); keep(); }));
+      $$('[data-dept]').forEach((c) => (c.onchange = () => { toggle(auditUi.depts, c.dataset.dept, c.checked); keep(); }));
+      if ($('#audStatus')) $('#audStatus').onchange = (e) => { auditUi.status = e.target.value; keep(); };
+      $('#audAll').onclick = () => { auditUi.cols[auditUi.ds] = Object.keys(AUDIT[auditUi.ds].cols); keep(); };
+      $('#audNone').onclick = () => { auditUi.cols[auditUi.ds] = []; keep(); };
+      if ($('#audExport')) $('#audExport').onclick = () => { const d = auditData(); if (!d.head.length) { toast('Pilih minimal satu kolom.', false); return; } downloadCsv(`audit_${auditUi.ds}_demo.csv`, [d.head].concat(d.rows)); };
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Ganti Password PC: tiap aset mendapat password sendiri (tidak ada yang sama)
+  // ------------------------------------------------------------------
+  const pcpwUi = { cats: ['Desktop PC', 'Laptop'], dept: '', len: 7, sel: {} };
+  const pcpwAssets = () => db.assets.filter((a) => pcpwUi.cats.includes(a.category) && a.status === 'Digunakan' && (!pcpwUi.dept || a.department === pcpwUi.dept)).sort((x, y) => x.category.localeCompare(y.category) || x.asset_number.localeCompare(y.asset_number));
+  PAGES.pcpw = {
+    render() {
+      const list = pcpwAssets(); const draft = db.pcDraft || {};
+      const nDraft = list.filter((a) => draft[a.id]).length;
+      return `<p class="text-sm text-slate-500 mb-4 max-w-3xl">Bantu pergantian Password PC semua Desktop PC / Laptop. Setiap aset mendapat password sendiri. Password di sistem baru berubah setelah Anda klik <b>Terapkan ke sistem</b>.</p>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-sm">
+  <div class="bg-white rounded-xl shadow-sm p-3"><b>1. Buat password baru</b>, otomatis atau ketik sendiri.</div>
+  <div class="bg-white rounded-xl shadow-sm p-3"><b>2. Export</b> sebagai daftar kerja saat mengganti password di tiap PC.</div>
+  <div class="bg-white rounded-xl shadow-sm p-3"><b>3. Terapkan ke sistem</b> untuk aset yang password PC-nya sudah diganti.</div>
+</div>
+<div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-end gap-4">
+  <div><p class="text-xs text-slate-500 mb-1">Jenis Aset</p><div class="flex flex-wrap gap-x-4 gap-y-1">${db.categories.map((c) => `<label class="flex items-center gap-2 text-sm"><input type="checkbox" data-pcat="${esc(c.name)}" ${pcpwUi.cats.includes(c.name) ? 'checked' : ''} class="rounded"> ${esc(c.name)}</label>`).join('')}</div></div>
+  <div><p class="text-xs text-slate-500 mb-1">Departement</p><select id="pcDept" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">${options(db.departments, pcpwUi.dept, 'Semua')}</select></div>
+</div>
+<div class="bg-white rounded-xl shadow-sm">
+  <div class="list-toolbar flex flex-wrap items-center gap-2 p-3 border-b">
+    <span class="text-sm font-semibold text-slate-700 mr-auto">Daftar aset <span class="font-normal text-slate-400">(${list.length} aset, ${nDraft} punya password baru)</span></span>
+    <label class="text-xs text-slate-500 flex items-center gap-1">Panjang <select id="pcLen" class="border rounded-lg px-2 py-1.5 text-sm bg-white">${options(PCPW_LENGTHS, pcpwUi.len)}</select></label>
+    <button id="pcGen" class="${btnGhost}">${icon('key')} Buat password baru</button>
+    ${ARTIFACT ? '' : `<button id="pcExport" class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-sm font-medium">${icon('sheet')} Export (CSV)</button>`}
+    <button id="pcApply" class="${btnPrimary}">${icon('check')} Terapkan ke sistem</button>
+    <button id="pcClear" class="text-xs text-slate-500 hover:text-red-600">Hapus password baru</button>
+  </div>
+  <p class="px-4 py-2 text-xs text-slate-400 border-b">Tombol bekerja pada baris yang dicentang. Bila tidak ada yang dicentang, berlaku untuk semua baris yang tampil.</p>
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+  <thead><tr class="text-left text-slate-500 border-b bg-slate-50"><th class="py-2.5 px-3 w-8"><input type="checkbox" id="pcAll" class="rounded"></th><th class="py-2.5 px-3">Jenis Aset</th><th class="py-2.5 px-3">ID Aset</th><th class="py-2.5 px-3">Pengguna</th><th class="py-2.5 px-3">Departement</th><th class="py-2.5 px-3">IP Address</th><th class="py-2.5 px-3">Username PC</th><th class="py-2.5 px-3">Password Lama</th><th class="py-2.5 px-3">Password Baru</th></tr></thead>
+  <tbody>${list.map((a) => `<tr class="border-b last:border-0 hover:bg-slate-50">
+    <td class="py-2 px-3"><input type="checkbox" data-pcsel="${a.id}" ${pcpwUi.sel[a.id] ? 'checked' : ''} class="rounded"></td>
+    <td class="py-2 px-3 whitespace-nowrap">${esc(a.category)}</td><td class="py-2 px-3 font-medium whitespace-nowrap">${esc(a.asset_number)}</td>
+    <td class="py-2 px-3 whitespace-nowrap">${esc(ownersOf(a.id).map((o) => o.full_name).join(', ') || DASH)}</td><td class="py-2 px-3 whitespace-nowrap">${esc(a.department || DASH)}</td>
+    <td class="py-2 px-3 whitespace-nowrap">${esc(a.ip_address || DASH)}</td><td class="py-2 px-3 whitespace-nowrap">${esc(a.pc_username || DASH)}</td>
+    <td class="py-2 px-3 font-mono text-xs whitespace-nowrap">${esc(a.pc_password || DASH)}</td>
+    <td class="py-2 px-3"><input data-pcnew="${a.id}" value="${esc(draft[a.id] || '')}" placeholder="belum dibuat" class="border border-slate-300 rounded-lg px-2 py-1 text-sm font-mono w-32"></td></tr>`).join('') || '<tr><td colspan="9" class="py-8 text-center text-slate-400">Tidak ada aset yang cocok dengan saringan.</td></tr>'}</tbody></table></div>
+</div>`;
+    },
+    bind() {
+      if (!db.pcDraft) db.pcDraft = {};
+      const target = () => { const list = pcpwAssets(); const sel = list.filter((a) => pcpwUi.sel[a.id]); return sel.length ? sel : list; };
+      $$('[data-pcat]').forEach((c) => (c.onchange = () => { const i = pcpwUi.cats.indexOf(c.dataset.pcat); if (c.checked && i < 0) pcpwUi.cats.push(c.dataset.pcat); if (!c.checked && i >= 0) pcpwUi.cats.splice(i, 1); render(); }));
+      $('#pcDept').onchange = (e) => { pcpwUi.dept = e.target.value; render(); };
+      $('#pcLen').onchange = (e) => { pcpwUi.len = +e.target.value; };
+      $('#pcAll').onchange = (e) => { pcpwAssets().forEach((a) => { if (e.target.checked) pcpwUi.sel[a.id] = 1; else delete pcpwUi.sel[a.id]; }); render(); };
+      $$('[data-pcsel]').forEach((c) => (c.onchange = () => { if (c.checked) pcpwUi.sel[c.dataset.pcsel] = 1; else delete pcpwUi.sel[c.dataset.pcsel]; }));
+      $$('[data-pcnew]').forEach((i) => (i.onchange = () => { const v = i.value.trim(); if (v) db.pcDraft[i.dataset.pcnew] = v; else delete db.pcDraft[i.dataset.pcnew]; save(); }));
+      $('#pcGen').onclick = () => {
+        const t = target(); const ids = t.map((a) => String(a.id));
+        // password tidak boleh sama dengan password aset lain, baik yang lama maupun yang baru
+        const used = new Set(db.assets.map((a) => a.pc_password).filter(Boolean).concat(Object.keys(db.pcDraft).filter((k) => !ids.includes(k)).map((k) => db.pcDraft[k])));
+        t.forEach((a) => { db.pcDraft[a.id] = genUniquePcPassword(pcpwUi.len, used); });
+        save(); render(); toast(`${t.length} password baru dibuat, semuanya berbeda.`);
+      };
+      $('#pcClear').onclick = () => { target().forEach((a) => delete db.pcDraft[a.id]); save(); render(); };
+      $('#pcApply').onclick = async () => {
+        const t = target().filter((a) => db.pcDraft[a.id]);
+        if (!t.length) { toast('Belum ada password baru pada baris yang dipilih.', false); return; }
+        const vals = t.map((a) => db.pcDraft[a.id]);
+        if (new Set(vals).size !== vals.length) { toast('Ada password baru yang sama. Tiap aset harus berbeda.', false); return; }
+        if (!(await ask(`Terapkan password baru ke ${t.length} aset? Password lama di sistem akan diganti.`, 'Terapkan'))) return;
+        t.forEach((a) => { a.pc_password = db.pcDraft[a.id]; delete db.pcDraft[a.id]; delete pcpwUi.sel[a.id]; });
+        save(); render(); toast(`Password PC ${t.length} aset diperbarui.`);
+      };
+      if ($('#pcExport')) $('#pcExport').onclick = () => downloadCsv('ganti_password_pc_demo.csv', [['Jenis Aset', 'ID Aset', 'Pengguna', 'Departement', 'IP Address', 'Lokasi', 'Username PC', 'Password Lama', 'Password Baru', 'Selesai (paraf)']].concat(target().map((a) => [a.category, a.asset_number, ownersOf(a.id).map((o) => o.full_name).join(', '), a.department, a.ip_address, a.location, a.pc_username, a.pc_password, db.pcDraft[a.id] || '', ''])));
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // Signature Email: gambar digambar di browser, warna mengikuti logo perusahaan
+  // ------------------------------------------------------------------
+  const sigSet = () => (db.settings.signature = db.settings.signature || { company: '', t1: '', t2: '', addr1: '', addr2: '', logo: '' });
+  const sigUi = { phone: '', name: null, dept: null, pos: null };
+  PAGES.signature = {
+    render() {
+      const u = currentUser(); const s = sigSet(); const admin = isAdmin();
+      const val = (k, d) => (sigUi[k] === null ? d : sigUi[k]);
+      const row = (id, label, k, d) => `<div><div class="flex items-baseline justify-between gap-2 mb-1"><label class="text-sm font-medium text-slate-600" for="${id}">${label}</label><button type="button" data-sig-reset="${k}" class="text-xs text-blue-600 hover:underline">Pakai data akun</button></div><input id="${id}" data-sig="${k}" value="${esc(val(k, d))}" class="${inputCls}"></div>`;
+      return `<p class="text-sm text-slate-500 mb-4 max-w-3xl">Buat gambar signature email perusahaan. Nama, departemen dan jabatan terisi otomatis dari akun Anda dan boleh diketik manual.</p>
+<div class="grid gap-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] items-start">
+  <div class="bg-white rounded-xl shadow-sm p-5 space-y-4">
+    ${row('sigName', 'Nama', 'name', u.full_name)}${row('sigDept', 'Departemen', 'dept', u.department || '')}${row('sigPos', 'Jabatan', 'pos', u.position || '')}
+    <div><label class="block text-sm font-medium text-slate-600 mb-1" for="sigPhone">Nomor handphone (tampil setelah M)</label><input id="sigPhone" data-sig="phone" value="${esc(sigUi.phone)}" inputmode="tel" placeholder="0812 3456 7890" class="${inputCls}">
+    <p class="text-xs text-slate-400 mt-1">Otomatis diubah ke format +62. Kosongkan jika tidak ingin ditampilkan.</p></div>
+    <div class="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500 space-y-0.5"><div>Diatur admin, tidak bisa diubah:</div>
+      <div><b class="text-slate-700">T1</b> ${esc(s.t1 || DASH)} &nbsp; <b class="text-slate-700">T2</b> ${esc(s.t2 || DASH)}</div><div><b class="text-slate-700">A</b> ${esc([s.addr1, s.addr2].filter(Boolean).join(' ') || DASH)}</div></div>
+  </div>
+  <div class="space-y-5 min-w-0">
+    <div class="bg-white rounded-xl shadow-sm p-5 min-w-0">
+      <div class="text-sm text-slate-500 mb-2">Pratinjau (berubah saat Anda mengetik):</div>
+      <canvas id="sigCanvas" width="1248" height="378" class="block w-full h-auto border border-slate-200 rounded bg-white" style="max-width:624px"></canvas>
+      <div class="flex flex-wrap items-center gap-3 mt-4">${ARTIFACT ? '<span class="text-xs text-slate-400">Unduh JPG tersedia di demo web.</span>' : `<button id="sigDownload" class="${btnPrimary}">${icon('download')} Download JPG</button>`}<span id="sigInfo" class="text-xs text-slate-500"></span></div>
+      <p class="text-xs text-slate-400 mt-3">Nama dan jabatan otomatis ditulis huruf besar. <span id="sigColorNote"></span></p>
+    </div>
+    ${admin ? `<form id="sigSetForm" class="bg-white rounded-xl shadow-sm p-5 space-y-4">
+      <div><h3 class="font-semibold text-slate-700">Pengaturan Signature (khusus admin)</h3><p class="text-xs text-slate-500 mt-0.5">Berlaku untuk signature semua user. Pratinjau langsung mengikuti isian di sini; klik Simpan untuk menerapkannya.</p></div>
+      <div class="grid gap-3 sm:grid-cols-3">${field('Nama perusahaan', `<input name="company" data-sigset maxlength="40" value="${esc(s.company)}" class="${inputCls}">`)}${field('T1', `<input name="t1" data-sigset maxlength="30" value="${esc(s.t1)}" class="${inputCls}">`)}${field('T2', `<input name="t2" data-sigset maxlength="30" value="${esc(s.t2)}" class="${inputCls}">`)}</div>
+      ${field('Alamat perusahaan (A) <span class="text-xs font-normal text-slate-400">(maksimal 2 baris)</span>', `<textarea name="address" data-sigset rows="2" class="${inputCls}">${esc([s.addr1, s.addr2].filter(Boolean).join('\n'))}</textarea>`)}
+      ${field('Logo perusahaan untuk signature', `<input type="file" name="logo" id="sigLogo" accept="image/png,image/jpeg" class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium">`)}
+      <p class="text-xs text-slate-400 -mt-2">PNG atau JPG, maks. 300 KB (batas versi demo). Warna hiasan dan teks otomatis mengikuti warna logo ini.</p>
+      <div class="flex flex-wrap items-center gap-2"><span class="text-xs text-slate-500">Coba logo contoh:</span>${[['#1d6fd8', 'biru'], ['#c62828', 'merah'], ['#1e8e4e', 'hijau'], ['#e07a10', 'oranye'], ['#111111', 'hitam']].map(([c, n]) => `<button type="button" data-sig-sample="${c}" class="inline-flex items-center gap-1.5 border rounded-lg px-2.5 py-1 text-xs"><span class="w-2.5 h-2.5 rounded-full" style="background:${c}"></span>${n}</button>`).join('')}</div>
+      <div class="flex justify-end pt-2 border-t"><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>` : ''}
+  </div>
+</div>`;
+    },
+    bind() {
+      const u = currentUser(); const s = sigSet(); const c = $('#sigCanvas'); const W = 1248, H = 378, S = 2;
+      const FONT = '"Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif';
+      const NEUTRAL = { auto: false, dark: '#1f2937', accent: '#64748b', light: '#cbd5e1' };
+      let logo = null, pal = NEUTRAL, logoData = s.logo || '';
+      const rgb2hsl = (r, g, b) => { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0, sa = 0; const l = (mx + mn) / 2;
+        if (d) { sa = d / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, sa, l]; };
+      const hsl = (h, sa, l) => `hsl(${Math.round(h)},${Math.round(sa * 100)}%,${Math.round(l * 100)}%)`;
+      // Warna dominan logo: abaikan piksel transparan, putih, hitam dan abu-abu.
+      const palette = (img) => { try {
+        const t = document.createElement('canvas'); t.width = 80; t.height = 80; const g = t.getContext('2d'); g.drawImage(img, 0, 0, 80, 80);
+        const d = g.getImageData(0, 0, 80, 80).data; const bins = []; for (let i = 0; i < 36; i++) bins.push({ w: 0, x: 0, y: 0, s: 0 });
+        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) continue; const q = rgb2hsl(d[i], d[i + 1], d[i + 2]); if (q[1] < 0.25 || q[2] > 0.92 || q[2] < 0.08) continue;
+          const b = bins[Math.floor(q[0] / 10) % 36]; b.w += q[1]; b.s += q[1] * q[1]; b.x += Math.cos(q[0] * Math.PI / 180) * q[1]; b.y += Math.sin(q[0] * Math.PI / 180) * q[1]; }
+        const best = bins.reduce((a, n) => (n.w > a.w ? n : a)); if (best.w < 8) return NEUTRAL;
+        let h = Math.atan2(best.y, best.x) * 180 / Math.PI; if (h < 0) h += 360; const sa = Math.min(0.85, best.s / best.w);
+        return { auto: true, dark: hsl(h, Math.min(sa, 0.6), 0.2), accent: hsl(h, sa, 0.48), light: hsl(h, Math.min(sa, 0.7), 0.78) };
+      } catch (e) { return NEUTRAL; } };
+      const fmtPhone = (v) => { let d = String(v).replace(/\D/g, ''); if (!d) return ''; if (d.indexOf('62') === 0) d = d.slice(2); else if (d[0] === '0') d = d.slice(1); return '+62 ' + [d.slice(0, 3), d.slice(3, 7), d.slice(7)].filter(Boolean).join(' '); };
+      const setVal = (name, key) => { const el = $(`#sigSetForm [name="${name}"]`); return el ? el.value : (s[key] || ''); };
+      const draw = () => {
+        const g = c.getContext('2d'); g.globalAlpha = 1; g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+        g.save(); g.beginPath(); g.rect(0, 0, W, H); g.clip();
+        [[0, 1, pal.accent], [1, 0.75, pal.accent], [2, 1, pal.light], [3, 0.7, pal.light], [4, 0.4, pal.light]].forEach((b) => {
+          const x = W - (40 + b[0] * 34) * S, wd = 20 * S, len = (150 - b[0] * 22) * S; g.globalAlpha = b[1]; g.fillStyle = b[2];
+          g.beginPath(); g.moveTo(x, 0); g.lineTo(x + wd, 0); g.lineTo(x + wd - len * 0.55, len); g.lineTo(x - len * 0.55, len); g.closePath(); g.fill(); });
+        g.restore(); g.globalAlpha = 1; g.strokeStyle = '#e6e6e6'; g.lineWidth = 2; g.strokeRect(1, 1, W - 2, H - 2);
+        if (logo) { const lw = logo.naturalWidth || logo.width, lh = logo.naturalHeight || logo.height, k = Math.min(200 * S / lw, 46 * S / lh); g.drawImage(logo, 22 * S, 18 * S + (46 * S - lh * k) / 2, lw * k, lh * k); }
+        const x0 = 22 * S, y = 78 * S; g.textBaseline = 'alphabetic';
+        g.fillStyle = pal.dark; g.font = `700 ${15 * S}px ${FONT}`; g.fillText($('#sigName').value.trim().toUpperCase(), x0, y + 15 * S);
+        g.fillStyle = '#333'; g.font = `400 ${12 * S}px ${FONT}`;
+        g.fillText([setVal('company', 'company').trim(), $('#sigDept').value.trim(), $('#sigPos').value.trim().toUpperCase()].filter(Boolean).join('   |   '), x0, y + 37 * S);
+        let x = x0; const yy = y + 63 * S;
+        [['T1', setVal('t1', 't1').trim()], ['T2', setVal('t2', 't2').trim()], ['M', fmtPhone($('#sigPhone').value)]].forEach((p) => { if (!p[1]) return;
+          g.fillStyle = pal.dark; g.font = `700 ${12 * S}px ${FONT}`; g.fillText(p[0], x, yy); x += g.measureText(p[0] + ' ').width;
+          g.fillStyle = '#333'; g.font = `400 ${12 * S}px ${FONT}`; g.fillText(p[1], x, yy); x += g.measureText(p[1]).width + 16 * S; });
+        const adEl = $('#sigSetForm [name="address"]'); const ad = adEl ? adEl.value.split(/\r\n|\r|\n/) : [s.addr1, s.addr2];
+        const a1 = (ad[0] || '').trim(), a2 = (ad[1] || '').trim();
+        if (a1 || a2) { g.fillStyle = pal.dark; g.font = `700 ${12 * S}px ${FONT}`; g.fillText('A', x0, y + 85 * S); const ax = x0 + g.measureText('A ').width;
+          g.fillStyle = '#333'; g.font = `400 ${12 * S}px ${FONT}`; g.fillText(a1 || a2, ax, y + 85 * S); if (a1 && a2) g.fillText(a2, x0, y + 101 * S); }
+        $('#sigColorNote').textContent = pal.auto ? 'Warna mengikuti logo perusahaan.' : 'Logo belum ada atau tidak berwarna, jadi dipakai warna netral.';
+        $('#sigInfo').textContent = '';
+      };
+      const loadLogo = (src) => { if (!src) { logo = null; pal = NEUTRAL; draw(); return; } const img = new Image(); img.onload = () => { if (!c.isConnected) return; logo = img; pal = palette(img); draw(); }; img.onerror = () => { logo = null; pal = NEUTRAL; draw(); }; img.src = src; };
+      const sampleLogo = (color) => { const t = document.createElement('canvas'); t.width = 360; t.height = 120; const g = t.getContext('2d'); g.fillStyle = color;
+        g.beginPath(); g.arc(60, 60, 50, 0, 6.3); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(60, 60, 22, 0, 6.3); g.fill();
+        g.fillStyle = color; g.font = '700 54px ' + FONT; g.textBaseline = 'middle'; g.fillText('LOGO', 135, 64); return t.toDataURL('image/png'); };
+      $$('[data-sig]').forEach((i) => (i.oninput = () => { sigUi[i.dataset.sig] = i.value; draw(); }));
+      $$('[data-sig-reset]').forEach((b) => (b.onclick = () => { const k = b.dataset.sigReset; sigUi[k] = null; $(`[data-sig="${k}"]`).value = { name: u.full_name, dept: u.department || '', pos: u.position || '' }[k]; draw(); }));
+      $$('[data-sigset]').forEach((i) => (i.oninput = draw));
+      $$('[data-sig-sample]').forEach((b) => (b.onclick = () => { logoData = sampleLogo(b.dataset.sigSample); loadLogo(logoData); toast('Logo contoh dipasang di pratinjau. Klik Simpan untuk menerapkannya.'); }));
+      if ($('#sigLogo')) $('#sigLogo').onchange = (e) => { const f = e.target.files[0]; if (!f) return;
+        if (!/^image\/(png|jpeg)$/.test(f.type)) { toast('Logo harus berformat PNG atau JPG.', false); return; }
+        if (f.size > 300 * 1024) { toast('Logo terlalu besar (maks. 300 KB di demo).', false); return; }
+        const rd = new FileReader(); rd.onload = () => { logoData = rd.result; loadLogo(logoData); }; rd.readAsDataURL(f); };
+      if ($('#sigSetForm')) $('#sigSetForm').onsubmit = (e) => { e.preventDefault(); const f = e.target; const ad = f.address.value.split(/\r\n|\r|\n/);
+        Object.assign(s, { company: f.company.value.trim().slice(0, 40), t1: f.t1.value.trim().slice(0, 30), t2: f.t2.value.trim().slice(0, 30), addr1: (ad[0] || '').trim(), addr2: (ad[1] || '').trim(), logo: logoData });
+        save(); render(); toast('Pengaturan signature disimpan.'); };
+      if ($('#sigDownload')) $('#sigDownload').onclick = () => { const name = $('#sigName').value.trim(); if (!name) { $('#sigInfo').textContent = 'Nama belum diisi.'; return; }
+        const file = 'signature_' + (name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'email') + '.jpg';
+        c.toBlob((blob) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 200); $('#sigInfo').textContent = `File ${file} sudah diunduh.`; }, 'image/jpeg', 0.92); };
+      draw(); loadLogo(logoData);
+    },
+  };
+
+  // Riwayat update status + detail pengerjaan pada daftar tiket admin
+  function ticketHistoryHtml(t) {
+    const logs = logsOf(t.id); const w = workOf(t.id) || {}; const cancelled = isCancelled(t);
+    const items = logs.map((l, i) => {
+      const st = cancelled && i === logs.length - 1 && l.status === 'Selesai' ? 'Dibatalkan' : l.status;
+      const who = (userById(l.changed_by) || {}).full_name || DASH;
+      return `<li class="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span class="inline-block text-[11px] font-semibold rounded-full px-2 py-px ${TICKET_BADGE[st]}">${st}</span><span class="text-slate-700">${fmtDateTime(l.changed_at)}</span><span class="text-slate-500">· ${i === 0 && l.status === 'Menunggu' ? 'Tiket dibuat oleh ' : 'Diubah oleh '}${esc(who)}</span></li>`;
+    }).join('');
+    const hasWork = w.work_detail || w.asset_check;
+    return `${items ? `<div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs"><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Riwayat Update</div><ul class="space-y-1">${items}</ul>${!cancelled && t.status === 'Selesai' && !hasWork ? '<div class="mt-1.5 italic text-slate-400">Detail pengerjaan belum diisi — klik "Rincian".</div>' : ''}</div>` : ''}
+      ${!cancelled && hasWork ? `<div class="mt-2 rounded-lg border border-green-100 bg-green-50/60 px-2.5 py-2 text-xs space-y-1">${w.work_detail ? `<div><span class="font-semibold text-green-800">Rincian Pengerjaan:</span> ${esc(w.work_detail)}</div>` : ''}${w.asset_check ? `<div><span class="font-semibold text-green-800">Hasil Pengecekan dan Kesimpulan:</span> ${esc(w.asset_check)}</div>` : ''}</div>` : ''}`;
+  }
 
   // ------------------------------------------------------------------
   render();
