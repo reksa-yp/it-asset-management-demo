@@ -46,6 +46,13 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
 - 🆕 **Ganti Password PC** — membuat password baru yang **berbeda untuk tiap aset**, daftar kerja untuk di-export,
   lalu **Terapkan ke sistem**.
 - **Pengaturan Sistem** — nama sistem, logo, dan prefix nomor aset.
+- 🆕 **Kop Surat** — logo, ornamen, nama, dan alamat perusahaan diatur admin, lalu dicetak di **setiap halaman** dokumen
+  (Print dan PDF) serta di bagian atas file Excel. Zona waktu untuk tulisan "Dibuat pada" bisa dipilih (WIB/WITA/WIT).
+- 🆕 **Scan QR aset** — QR pada label berisi alamat detail aset, bisa dipindai dengan kamera HP atau scanner USB.
+  Tombol Scan QR ada di Dashboard dan menu Aset.
+- 🆕 **File Excel seragam** — semua export dan template import memuat logo, judul otomatis (mis. *Data Desktop PC dan Laptop*),
+  tanggal dibuat, jumlah data, dan kolom **No**. Judul kolom di baris 8; import mengenali susunan baru maupun file lama.
+- 🆕 **Filter Lokasi** di daftar aset, dan **tombol VNC** di samping IP aset untuk membuka TightVNC Viewer dari PC admin.
 
 **User**
 - **Aset Saya** — detail perangkat, riwayat perbaikan, dan riwayat upgrade.
@@ -64,7 +71,8 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
 | TailwindCSS · PhpSpreadsheet (Excel) · Dompdf (PDF) | TailwindCSS · data di `localStorage` |
 | Installer web, multi-bahasa (ID/EN), RBAC admin/user | Di-hosting gratis di GitHub Pages |
 
-Fitur yang hanya ada di aplikasi asli: export Excel/PDF lengkap, backup database otomatis, installer web.
+Fitur yang hanya ada di aplikasi asli: export Excel/PDF lengkap, kop surat dokumen, scan QR aset, filter lokasi, tombol VNC,
+backup database otomatis, installer web.
 (Import Aset + User di demo memakai SheetJS dari CDN, jadi perlu koneksi internet.)
 
 ## Screenshot
@@ -76,6 +84,10 @@ Fitur yang hanya ada di aplikasi asli: export Excel/PDF lengkap, backup database
 | Ganti Password PC | Signature Email |
 |---|---|
 | ![Ganti Password PC](screenshots/11-ganti-password-pc.jpg) | ![Signature Email](screenshots/12-signature-email.jpg) |
+
+| Dokumen berkop (aplikasi asli) |
+|---|
+| ![Dokumen berkop](screenshots/13-dokumen-berkop.jpg) |
 
 Tangkapan layar lain ada di folder `screenshots/`.
 
