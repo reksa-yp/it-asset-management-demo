@@ -488,11 +488,11 @@
     <div class="space-y-2 mb-5">
       <button data-quick="admin" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 text-left transition">
         <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">${icon('dashboard', 'w-5 h-5')}</span>
-        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai Admin</span><span class="block text-xs text-slate-500">Aset, ticketing, stok, mutasi, audit, signature</span></span>
+        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai Admin</span><span class="block text-xs text-slate-500">Aset, ticketing, stok, CCTV, ext telepon, audit</span></span>
       </button>
       <button data-quick="user" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 text-left transition">
         <span class="w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center">${icon('monitor', 'w-5 h-5')}</span>
-        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai User</span><span class="block text-xs text-slate-500">Aset saya, buat tiket, antrian, signature</span></span>
+        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai User</span><span class="block text-xs text-slate-500">Aset saya, tiket, checklist CCTV, ext telepon</span></span>
       </button>
     </div>
     <div class="flex items-center gap-3 text-xs text-slate-400 mb-4"><div class="flex-1 border-t"></div>atau login manual<div class="flex-1 border-t"></div></div>
@@ -2338,6 +2338,361 @@ ${def.filters ? `<div class="bg-white rounded-xl shadow-sm p-5 mb-4"><h3 class="
     return `${items ? `<div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs"><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Riwayat Update</div><ul class="space-y-1">${items}</ul>${!cancelled && t.status === 'Selesai' && !hasWork ? '<div class="mt-1.5 italic text-slate-400">Detail pengerjaan belum diisi — klik "Rincian".</div>' : ''}</div>` : ''}
       ${!cancelled && hasWork ? `<div class="mt-2 rounded-lg border border-green-100 bg-green-50/60 px-2.5 py-2 text-xs space-y-1">${w.work_detail ? `<div><span class="font-semibold text-green-800">Rincian Pengerjaan:</span> ${esc(w.work_detail)}</div>` : ''}${w.asset_check ? `<div><span class="font-semibold text-green-800">Hasil Pengecekan dan Kesimpulan:</span> ${esc(w.asset_check)}</div>` : ''}</div>` : ''}`;
   }
+
+  // ------------------------------------------------------------------
+  // CCTV (demo): monitoring NVR, checklist, List View, rekap, log, pengaturan
+  // Status kamera disimulasikan di browser; aplikasi asli membacanya dari NVR.
+  // ------------------------------------------------------------------
+  ICONS.camera = '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>';
+  ICONS.phone = '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>';
+  const MIN = 60000;
+  const dstr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const hhmm = (iso) => { const d = new Date(iso); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const durText = (ms) => { const m = Math.max(0, Math.round(ms / MIN)); if (m < 60) return m + ' menit'; const h = Math.floor(m / 60); return h < 24 ? `${h} jam ${m % 60} menit` : `${Math.floor(h / 24)} hari ${h % 24} jam`; };
+
+  function cctvSeed() {
+    let s = 7310; const r = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648);
+    const nvrs = [
+      { id: 1, name: 'NVR 1', brand: 'Hikvision', ip: '192.168.10.201', location: 'Ruang Server' },
+      { id: 2, name: 'NVR 2', brand: 'Dahua', ip: '192.168.10.202', location: 'Pos Security' },
+    ];
+    const spots = [
+      ['Lobby Utama', 'Gedung Kantor'], ['Resepsionis', 'Gedung Kantor'], ['Koridor Lt. 1', 'Gedung Kantor'], ['Koridor Lt. 2', 'Gedung Kantor'],
+      ['Ruang Meeting', 'Gedung Kantor'], ['Ruang Server', 'Gedung Kantor'], ['Kantin', 'Area Umum'], ['Parkir Motor', 'Area Luar'],
+      ['Parkir Mobil', 'Area Luar'], ['Gerbang Depan', 'Area Luar'], ['Gerbang Belakang', 'Area Luar'], ['Tangga Darurat', 'Gedung Kantor'],
+      ['Gudang Bahan', 'Gudang'], ['Gudang Jadi', 'Gudang'], ['Loading Dock', 'Gudang'], ['Line Produksi 1', 'Produksi'],
+      ['Line Produksi 2', 'Produksi'], ['Line Produksi 3', 'Produksi'], ['QC Room', 'Produksi'], ['Ruang Panel', 'Produksi'],
+      ['Pos Security', 'Area Luar'], ['Pagar Timur', 'Area Luar'], ['Pagar Barat', 'Area Luar'], ['Area Limbah', 'Area Luar'],
+      ['Gudang Sparepart', 'Gudang'], ['Mushola', 'Area Umum'], ['Klinik', 'Area Umum'], ['Lapangan', 'Area Luar'],
+    ];
+    const types = ['Dome 2MP', 'Bullet 2MP', 'Bullet 4MP', 'Dome 4MP', 'PTZ 2MP'];
+    const cams = spots.map((sp, i) => {
+      const nvr = i < 16 ? 1 : 2; const ch = nvr === 1 ? i + 1 : i - 15;
+      return { id: i + 1, nvr_id: nvr, channel: ch, name: `CAM ${pad(i + 1)} ${sp[0]}`, location: sp[1], ip: `192.168.10.${100 + i + 1}`, type: types[Math.floor(r() * types.length)] };
+    });
+    const now = Date.now();
+    const events = [];
+    // Riwayat kamera mati 60 hari terakhir (sudah pulih)
+    for (let k = 0; k < 14; k++) {
+      const cam = cams[Math.floor(r() * cams.length)];
+      const start = new Date(now - (2 + Math.floor(r() * 58)) * 86400000); start.setHours(6 + Math.floor(r() * 12), Math.floor(r() * 60), 0, 0);
+      const dur = (10 + Math.floor(r() * 170)) * MIN;
+      events.push({ id: k + 1, cam_id: cam.id, start: start.toISOString(), end: new Date(start.getTime() + dur).toISOString() });
+    }
+    // Saat ini: 1 kamera mati 47 menit (email sudah terkirim), 1 kamera mati 9 menit (belum)
+    events.push({ id: 15, cam_id: 8, start: new Date(now - 47 * MIN).toISOString(), end: null });
+    events.push({ id: 16, cam_id: 22, start: new Date(now - 9 * MIN).toISOString(), end: null });
+    const y = new Date().getFullYear();
+    return {
+      nvrs, cams, events, checklists: {}, snapshots: {}, last_check: new Date(now).toISOString(),
+      settings: { email_after_min: 30, email_to: 'it@contoh.co.id', off_weekdays: [6, 0], snapshot_schedule: 'first_monday' },
+      holidays: [
+        { date: `${y}-01-01`, name: 'Tahun Baru Masehi' }, { date: `${y}-08-17`, name: 'HUT Kemerdekaan RI' },
+        { date: `${y}-12-25`, name: 'Hari Natal' }, { date: `${y}-12-26`, name: 'Cuti bersama perusahaan' },
+      ],
+    };
+  }
+  function extSeed() {
+    const rows = [
+      ['101', 'Resepsionis', 'General Affair', 'Lobby'], ['102', 'Security', 'General Affair', 'Pos Security'], ['110', 'Admin Demo', 'IT', 'Ruang IT'],
+      ['111', 'Joko Susilo', 'IT', 'Ruang IT'], ['120', 'Budi Santoso', 'Finance', 'Lt. 2'], ['121', 'Fitri Handayani', 'Finance', 'Lt. 2'],
+      ['130', 'Siti Rahmawati', 'HRD', 'Lt. 2'], ['131', 'Rina Kartika', 'HRD', 'Lt. 2'], ['140', 'Dewi Lestari', 'Purchasing', 'Lt. 1'],
+      ['150', 'Rizky Hidayat', 'Marketing', 'Lt. 1'], ['160', 'Andi Pratama', 'Produksi', 'Office Produksi'], ['161', 'Hendra Wijaya', 'Produksi', 'Office Produksi'],
+      ['170', 'Agus Setiawan', 'Gudang', 'Gudang'], ['180', 'Nur Aisyah', 'Quality Control', 'QC Room'], ['190', 'Ruang Meeting', 'Umum', 'Lt. 2'],
+    ];
+    return rows.map((x, i) => ({ id: i + 1, ext: x[0], name: x[1], department: x[2], location: x[3] }));
+  }
+  if (!db.cctv) { db.cctv = cctvSeed(); save(); }
+  if (!db.phoneExt) { db.phoneExt = extSeed(); save(); }
+  const _origReset = resetDemo;
+  resetDemo = function () { _origReset(); db.cctv = cctvSeed(); db.phoneExt = extSeed(); save(); };
+
+  const C = () => db.cctv;
+  const nvrById = (id) => C().nvrs.find((n) => n.id === id) || {};
+  const openEvent = (camId) => C().events.find((e) => e.cam_id === camId && !e.end);
+  const camOnline = (cam) => !openEvent(cam.id);
+  const holidayOf = (ds) => C().holidays.find((h) => h.date === ds);
+  const isOffDay = (ds) => { const d = new Date(ds + 'T00:00:00'); return C().settings.off_weekdays.includes(d.getDay()) || !!holidayOf(ds); };
+  const offLabel = (ds) => { const h = holidayOf(ds); if (h) return h.name; return ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date(ds + 'T00:00:00').getDay()]; };
+  const CCTV_TABS = [['monitor', 'Monitoring'], ['checklist', 'Checklist'], ['listview', 'List View'], ['report', 'Rekap Bulanan'], ['log', 'Log CCTV Mati'], ['settings', 'Pengaturan']];
+  const cctvUi = { tab: 'monitor', nvr: 0, date: '', shift: '', month: '', lvNvr: 1 };
+  let cctvTimer = null;
+
+  // Status checklist 1 kamera di 1 tanggal: data checklist bila ada, selain itu (hari lalu) dari log kamera mati
+  function dayStatus(cam, ds) {
+    const today = todayStr();
+    if (ds > today) return '';
+    if (isOffDay(ds)) return 'L';
+    const rec = C().checklists[ds];
+    if (rec) { const sh = Object.values(rec); const items = sh.map((x) => x.items[cam.id]).filter(Boolean); if (items.length) return items.every((it) => it.ok) ? 'ok' : 'bad'; }
+    if (ds === today) return '';
+    const hit = C().events.some((e) => e.cam_id === cam.id && localDay(e.start) <= ds && (e.end ? localDay(e.end) : today) >= ds);
+    return hit ? 'bad' : 'ok';
+  }
+
+  // Gambar snapshot contoh (SVG) per kamera
+  function snapshotSvg(cam, iso) {
+    const online = camOnline(cam);
+    const h = (cam.id * 47) % 360;
+    const ts = iso ? `${localDay(iso)} ${hhmm(iso)}:0${cam.id % 10}` : '';
+    const body = online
+      ? `<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${h},18%,62%)"/><stop offset="1" stop-color="hsl(${h},12%,32%)"/></linearGradient></defs>
+        <rect width="320" height="180" fill="url(#g)"/><polygon points="0,180 120,95 200,95 320,180" fill="hsl(${h},8%,24%)"/>
+        <rect x="${30 + (cam.id * 13) % 60}" y="52" width="46" height="58" fill="hsl(${h},10%,45%)"/><rect x="${200 + (cam.id * 7) % 50}" y="40" width="60" height="70" fill="hsl(${(h + 40) % 360},10%,40%)"/>
+        <rect x="140" y="70" width="40" height="25" fill="hsl(${h},20%,75%)" opacity=".5"/>`
+      : '<rect width="320" height="180" fill="#0f172a"/><text x="160" y="96" fill="#94a3b8" font-family="Arial" font-size="20" font-weight="bold" text-anchor="middle">NO SIGNAL</text>';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180">${body}
+      <text x="8" y="16" fill="#fff" font-family="monospace" font-size="11">${ts}</text>
+      <text x="312" y="172" fill="#fff" font-family="Arial" font-size="11" text-anchor="end">${esc(cam.name)}</text></svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  function cctvTabs() {
+    if (!isAdmin()) return '';
+    return `<div class="flex gap-1 overflow-x-auto bg-white rounded-xl shadow-sm p-1.5 mb-4">${CCTV_TABS.map(([k, l]) => `<button type="button" data-ctab="${k}" class="asset-tab-btn ${cctvUi.tab === k ? 'asset-tab-active' : ''}">${l}</button>`).join('')}</div>`;
+  }
+  const demoNote = (t) => `<p class="text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-4">${t}</p>`;
+
+  function cctvMonitor() {
+    const c = C(); const now = Date.now(); const thr = c.settings.email_after_min;
+    const cams = c.cams.filter((x) => !cctvUi.nvr || x.nvr_id === cctvUi.nvr);
+    const off = cams.filter((x) => !camOnline(x));
+    const card = (label, val, cls) => `<div class="bg-white rounded-xl shadow-sm p-4 border-l-4 ${cls}"><p class="text-sm text-slate-500">${label}</p><p class="text-2xl font-bold text-slate-800 mt-1">${val}</p></div>`;
+    const camCard = (x) => {
+      const ev = openEvent(x.id);
+      let st = '<span class="inline-flex items-center gap-1 text-xs font-semibold text-green-700"><span class="w-2 h-2 rounded-full bg-green-500"></span>Online</span>';
+      let extra = '';
+      if (ev) {
+        const ms = now - new Date(ev.start).getTime();
+        st = '<span class="inline-flex items-center gap-1 text-xs font-semibold text-red-600"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>Mati</span>';
+        const sent = ms >= thr * MIN;
+        extra = `<p class="text-xs text-red-600 mt-1">Mati sejak ${hhmm(ev.start)} · <span data-dur="${esc(ev.start)}">${durText(ms)}</span></p>
+          <p class="text-[11px] mt-1 ${sent ? 'text-amber-700' : 'text-slate-400'}">${sent ? `${icon('mail', 'w-3 h-3 inline')} Email terkirim ${hhmm(new Date(new Date(ev.start).getTime() + thr * MIN).toISOString())}` : `Email dikirim jika masih mati ${thr - Math.floor(ms / MIN)} menit lagi`}</p>`;
+      }
+      return `<div class="bg-white rounded-xl shadow-sm p-3 ${ev ? 'ring-2 ring-red-200' : ''}">
+        <div class="flex items-start justify-between gap-2"><p class="font-semibold text-sm text-slate-700 leading-tight">${esc(x.name)}</p>${st}</div>
+        <p class="text-xs text-slate-500 mt-1">${esc(x.location)} · ${esc(nvrById(x.nvr_id).name)} CH ${x.channel}</p>
+        <p class="text-xs text-slate-400">${esc(x.ip)} · ${esc(x.type)}</p>${extra}</div>`;
+    };
+    return `${demoNote('Di demo ini status kamera disimulasikan. Di aplikasi asli, status dibaca langsung dari NVR Hikvision/Dahua (atau IP kamera) setiap 1 menit oleh Task Scheduler, dan email dikirim otomatis bila kamera mati lebih dari ' + thr + ' menit.')}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+  ${card('Total Kamera', cams.length, 'border-blue-500')}${card('Online', cams.length - off.length, 'border-green-500')}${card('Mati', off.length, 'border-red-500')}${card('NVR Online', c.nvrs.length + ' / ' + c.nvrs.length, 'border-slate-400')}
+</div>
+<div class="bg-white rounded-xl shadow-sm p-3 mb-4 flex flex-wrap items-center gap-2">
+  <select id="cNvr" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">${options([{ value: 0, label: 'Semua NVR' }, ...c.nvrs.map((n) => ({ value: n.id, label: `${n.name} (${n.brand} · ${n.ip})` }))], cctvUi.nvr)}</select>
+  <button id="cCheck" class="${btnPrimary}">${icon('refresh')} Cek Sekarang</button>
+  <button id="cSimDown" class="${btnGhost}">${icon('alert')} Simulasikan kamera mati</button>
+  <span id="cctvLive" class="text-xs text-slate-500 ml-auto">Cek terakhir: ${fmtDateTime(c.last_check)} · halaman diperbarui otomatis</span>
+</div>
+${off.length ? `<h3 class="font-semibold text-red-600 mb-2">Kamera mati (${off.length})</h3><div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">${off.map(camCard).join('')}</div>` : ''}
+<h3 class="font-semibold text-slate-700 mb-2">Semua kamera</h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">${cams.filter(camOnline).map(camCard).join('')}</div>`;
+  }
+
+  function cctvChecklist() {
+    const c = C(); const ds = cctvUi.date || todayStr();
+    const hour = new Date().getHours(); const shift = cctvUi.shift || (hour < 13 ? 'Pagi' : 'Sore');
+    const rec = (c.checklists[ds] || {})[shift];
+    const off = isOffDay(ds);
+    const done = ['Pagi', 'Sore'].map((s) => { const r = (c.checklists[ds] || {})[s]; return `<span class="text-xs rounded-full px-2.5 py-1 ${r ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">${s}: ${r ? `sudah oleh ${esc(r.by)} ${hhmm(r.at)}` : 'belum'}</span>`; }).join(' ');
+    const rows = c.cams.map((x, i) => {
+      const it = rec ? rec.items[x.id] : { ok: camOnline(x), note: camOnline(x) ? '' : 'Tidak ada gambar' };
+      return `<tr class="border-b last:border-0"><td class="py-2 px-3 text-slate-400">${i + 1}</td><td class="py-2 px-3 font-medium">${esc(x.name)}</td><td class="py-2 px-3 text-slate-500 hidden md:table-cell">${esc(nvrById(x.nvr_id).name)} CH ${x.channel}</td>
+        <td class="py-2 px-3 whitespace-nowrap"><label class="mr-3 text-sm"><input type="radio" name="ok_${x.id}" value="1" ${it.ok ? 'checked' : ''}> <span class="text-green-700">Normal</span></label><label class="text-sm"><input type="radio" name="ok_${x.id}" value="0" ${it.ok ? '' : 'checked'}> <span class="text-red-600">Bermasalah</span></label></td>
+        <td class="py-2 px-3"><input name="note_${x.id}" value="${esc(it.note || '')}" placeholder="Keterangan" class="${inputCls} !py-1"></td></tr>`;
+    }).join('');
+    return `${isAdmin() ? '' : demoNote('Menu ini muncul untuk user yang diberi akses <b>Checklist CCTV</b> (misalnya Security) di Management User.')}
+<div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-end gap-3">
+  ${field('Tanggal', `<input type="date" id="clDate" value="${ds}" max="${todayStr()}" class="${inputCls}">`)}
+  ${field('Shift', `<select id="clShift" class="${inputCls}">${options(['Pagi', 'Sore'], shift)}</select>`)}
+  <div class="flex flex-wrap gap-2 pb-1">${done}</div>
+</div>
+${off ? `<div class="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-slate-600"><p class="font-semibold">Hari libur (${esc(offLabel(ds))})</p><p class="text-sm mt-1">Checklist tidak perlu diisi. Hari libur diatur di tab Pengaturan.</p></div>` : `
+<form id="clForm" class="bg-white rounded-xl shadow-sm overflow-hidden">
+  <div class="px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2"><p class="font-semibold text-slate-700">Checklist ${shift} — ${fmtDate(ds)}</p><p class="text-xs text-slate-400">Status awal diisi otomatis dari monitoring; ubah bila hasil pengecekan berbeda.</p></div>
+  <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-slate-500 bg-slate-50 border-b"><th class="py-2 px-3">No</th><th class="py-2 px-3">Nama CCTV</th><th class="py-2 px-3 hidden md:table-cell">NVR</th><th class="py-2 px-3">Kondisi</th><th class="py-2 px-3">Keterangan</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="px-4 py-3 border-t flex justify-end"><button class="${btnPrimary}">${icon('check')} Simpan Checklist</button></div>
+</form>`}`;
+  }
+
+  function cctvListView() {
+    const c = C(); const nvr = cctvUi.lvNvr;
+    const cams = c.cams.filter((x) => x.nvr_id === nvr);
+    return `${demoNote('Snapshot diambil otomatis setiap <b>Senin pertama tiap bulan jam 09:00</b> (bisa diubah di Pengaturan), atau manual dengan tombol di bawah. Snapshot lama tertimpa agar tidak memenuhi disk server. Di demo ini gambarnya ilustrasi.')}
+<div class="bg-white rounded-xl shadow-sm p-3 mb-4 flex flex-wrap items-center gap-2">
+  ${c.nvrs.map((n) => `<button type="button" data-lvnvr="${n.id}" class="asset-tab-btn ${n.id === nvr ? 'asset-tab-active' : ''}">${esc(n.name)}</button>`).join('')}
+  <button id="lvSnap" class="${btnPrimary} ml-auto">${icon('camera')} Ambil Snapshot ${esc(nvrById(nvr).name)}</button>
+  <button id="lvCsv" class="${btnGhost}">${icon('download')} Export</button>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${cams.map((x) => {
+      const snap = c.snapshots[x.id]; const on = camOnline(x);
+      return `<div class="bg-white rounded-xl shadow-sm overflow-hidden"><img src="${snapshotSvg(x, snap || c.last_check)}" alt="" class="w-full aspect-video object-cover bg-slate-900">
+      <div class="p-3"><div class="flex items-start justify-between gap-2"><p class="font-semibold text-sm text-slate-700">${esc(x.name)}</p><span class="text-[11px] font-semibold rounded-full px-2 py-0.5 ${on ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}">${on ? 'Online' : 'Offline'}</span></div>
+      <p class="text-xs text-slate-500 mt-1">${esc(x.location)} · CH ${x.channel} · ${esc(x.type)}</p><p class="text-xs text-slate-400">${esc(x.ip)} · Snapshot: ${snap ? fmtDateTime(snap) : 'contoh'}</p></div></div>`;
+    }).join('')}</div>`;
+  }
+
+  function monthDays(ym) { const [y, m] = ym.split('-').map(Number); const n = new Date(y, m, 0).getDate(); return Array.from({ length: n }, (_, i) => `${ym}-${pad(i + 1)}`); }
+  function cctvReport() {
+    const c = C(); const ym = cctvUi.month || todayStr().slice(0, 7); const days = monthDays(ym);
+    const months = []; const d0 = new Date(); for (let i = 0; i < 6; i++) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); months.push({ value: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}` }); }
+    const cell = (s) => ({ ok: '<span class="text-green-600 font-bold">✓</span>', bad: '<span class="text-red-600 font-bold">✗</span>', L: '<span class="text-slate-400">L</span>' }[s] || '');
+    const tables = c.nvrs.map((n) => {
+      const cams = c.cams.filter((x) => x.nvr_id === n.id);
+      const log = c.events.filter((e) => cams.some((x) => x.id === e.cam_id) && e.start.slice(0, 7) === ym).sort((a, b) => a.start.localeCompare(b.start));
+      return `<div class="bg-white rounded-xl shadow-sm mb-5 overflow-hidden">
+  <div class="px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2"><p class="font-semibold text-slate-700">Rekap ${esc(n.name)} — ${esc(months.find((m) => m.value === ym)?.label || ym)}</p><button data-csv="${n.id}" class="${btnGhost} !py-1.5">${icon('download')} Export ${esc(n.name)}</button></div>
+  <div class="overflow-x-auto"><table class="text-xs border-collapse"><thead><tr class="bg-slate-50 text-slate-500"><th class="sticky left-0 bg-slate-50 py-2 px-2 text-left border-b min-w-[11rem]">Nama CCTV</th>${days.map((ds) => `<th class="py-2 px-1 border-b w-6 ${isOffDay(ds) ? 'bg-slate-100' : ''}" title="${isOffDay(ds) ? esc(offLabel(ds)) : ''}">${+ds.slice(8)}</th>`).join('')}</tr></thead>
+  <tbody>${cams.map((x) => `<tr class="border-b last:border-0"><td class="sticky left-0 bg-white py-1.5 px-2 font-medium whitespace-nowrap">${esc(x.name)}</td>${days.map((ds) => { const s = dayStatus(x, ds); return `<td class="text-center px-1 ${s === 'L' ? 'bg-slate-50' : ''}">${cell(s)}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>
+  <div class="px-4 py-3 border-t bg-slate-50/60"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Log CCTV mati ${esc(n.name)} (halaman 2 di file Excel)</p>
+  ${log.length ? `<table class="w-full text-xs"><tbody>${log.map((e) => { const x = c.cams.find((k) => k.id === e.cam_id); return `<tr class="border-b last:border-0"><td class="py-1 pr-3 font-medium">${esc(x.name)}</td><td class="py-1 pr-3">${fmtDateTime(e.start)}</td><td class="py-1 pr-3">${e.end ? fmtDateTime(e.end) : '<span class="text-red-600">masih mati</span>'}</td><td class="py-1">${durText((e.end ? new Date(e.end) : new Date()) - new Date(e.start))}</td></tr>`; }).join('')}</tbody></table>` : '<p class="text-xs text-slate-400">Tidak ada kamera mati bulan ini.</p>'}</div></div>`;
+    }).join('');
+    return `${demoNote('Di aplikasi asli, Export Excel menghasilkan 1 file: sheet cover <b>VIEW NVR</b> (multi-view snapshot), lalu sheet <b>Rekap per NVR</b> yang muat 1 lembar A4, dengan log CCTV mati di halaman 2. Demo ini mengekspor CSV. ✓ = normal, ✗ = bermasalah, L = libur.')}
+<div class="bg-white rounded-xl shadow-sm p-3 mb-4 flex items-center gap-2"><label class="text-sm text-slate-600">Bulan</label><select id="rpMonth" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">${options(months, ym)}</select></div>${tables}`;
+  }
+
+  function cctvLog() {
+    const c = C(); const thr = c.settings.email_after_min;
+    const rows = [...c.events].sort((a, b) => b.start.localeCompare(a.start)).map((e) => {
+      const x = c.cams.find((k) => k.id === e.cam_id); const ms = (e.end ? new Date(e.end) : new Date()) - new Date(e.start);
+      return `<tr class="border-b last:border-0"><td class="py-2 px-3 font-medium">${esc(x.name)}</td><td class="py-2 px-3 text-slate-500">${esc(nvrById(x.nvr_id).name)} CH ${x.channel}</td><td class="py-2 px-3 whitespace-nowrap">${fmtDateTime(e.start)}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${e.end ? fmtDateTime(e.end) : '<span class="text-red-600 font-semibold">Masih mati</span>'}</td><td class="py-2 px-3 whitespace-nowrap">${durText(ms)}</td>
+        <td class="py-2 px-3">${ms >= thr * MIN ? '<span class="text-[11px] rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">Terkirim</span>' : '<span class="text-[11px] text-slate-400">Tidak perlu</span>'}</td></tr>`;
+    }).join('');
+    return `<div class="bg-white rounded-xl shadow-sm overflow-hidden"><div class="px-4 py-3 border-b flex items-center justify-between"><p class="font-semibold text-slate-700">Log CCTV Mati</p><button id="logCsv" class="${btnGhost} !py-1.5">${icon('download')} Export</button></div>
+<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-slate-500 bg-slate-50 border-b"><th class="py-2 px-3">Nama CCTV</th><th class="py-2 px-3">NVR</th><th class="py-2 px-3">Mati</th><th class="py-2 px-3">Pulih</th><th class="py-2 px-3">Durasi</th><th class="py-2 px-3">Email</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }
+
+  function cctvSettings() {
+    const s = C().settings; const dayNames = [[1, 'Senin'], [2, 'Selasa'], [3, 'Rabu'], [4, 'Kamis'], [5, 'Jumat'], [6, 'Sabtu'], [0, 'Minggu']];
+    const hol = [...C().holidays].sort((a, b) => a.date.localeCompare(b.date));
+    return `<form id="csForm" class="bg-white rounded-xl shadow-sm p-5 mb-4 grid sm:grid-cols-2 gap-4">
+  <p class="sm:col-span-2 font-semibold text-slate-700">Notifikasi &amp; jadwal</p>
+  ${field('Kirim email jika kamera mati lebih dari', `<select name="email_after_min" class="${inputCls}">${options([5, 10, 15, 30, 60].map((m) => ({ value: m, label: m + ' menit' })), s.email_after_min)}</select>`)}
+  ${field('Email penerima', `<input name="email_to" value="${esc(s.email_to)}" class="${inputCls}">`)}
+  ${field('Jadwal snapshot List View', `<select name="snapshot_schedule" class="${inputCls}">${options([{ value: 'first_monday', label: 'Senin pertama tiap bulan, 09:00' }, { value: 'daily', label: 'Setiap hari, 09:00' }, { value: 'off', label: 'Manual saja' }], s.snapshot_schedule)}</select>`)}
+  ${field('Libur mingguan (checklist tidak perlu diisi)', `<div class="flex flex-wrap gap-3 pt-2">${dayNames.map(([v, l]) => `<label class="text-sm"><input type="checkbox" name="off_${v}" ${s.off_weekdays.includes(v) ? 'checked' : ''}> ${l}</label>`).join('')}</div>`)}
+  <div class="sm:col-span-2 flex justify-end"><button class="${btnPrimary}">${icon('check')} Simpan</button></div>
+</form>
+<div class="bg-white rounded-xl shadow-sm p-5">
+  <p class="font-semibold text-slate-700 mb-1">Libur nasional &amp; cuti bersama</p><p class="text-xs text-slate-500 mb-3">Diisi manual. Tanggal ini ditandai L di rekap dan checklist tidak perlu diisi.</p>
+  <form id="hForm" class="flex flex-wrap gap-2 mb-3"><input type="date" name="date" required class="border border-slate-300 rounded-lg px-3 py-2 text-sm"><input name="name" required placeholder="Keterangan (mis. Cuti bersama)" class="flex-1 min-w-[12rem] border border-slate-300 rounded-lg px-3 py-2 text-sm"><button class="${btnPrimary}">${icon('plus')} Tambah</button></form>
+  <ul class="divide-y">${hol.map((h) => `<li class="py-2 flex items-center justify-between text-sm"><span><b>${fmtDate(h.date)}</b> · ${esc(h.name)}</span><button data-hdel="${h.date}" class="text-red-500 hover:text-red-700">${icon('trash')}</button></li>`).join('')}</ul>
+</div>`;
+  }
+
+  PAGES.cctv = {
+    render() {
+      if (!isAdmin()) cctvUi.tab = 'checklist';
+      const body = { monitor: cctvMonitor, checklist: cctvChecklist, listview: cctvListView, report: cctvReport, log: cctvLog, settings: cctvSettings }[cctvUi.tab]();
+      return cctvTabs() + body;
+    },
+    bind() {
+      const rr = () => { render(); };
+      $$('[data-ctab]').forEach((b) => (b.onclick = () => { cctvUi.tab = b.dataset.ctab; rr(); }));
+      if (cctvTimer) { clearInterval(cctvTimer); cctvTimer = null; }
+      const c = C();
+      if (cctvUi.tab === 'monitor') {
+        $('#cNvr').onchange = (e) => { cctvUi.nvr = +e.target.value; rr(); };
+        $('#cCheck').onclick = () => {
+          const open = c.events.filter((e) => !e.end);
+          if (open.length && Math.random() < 0.5) { const e = open[0]; e.end = new Date().toISOString(); toast(`${c.cams.find((x) => x.id === e.cam_id).name} kembali online.`); }
+          else toast('Pengecekan selesai: tidak ada perubahan status.');
+          c.last_check = new Date().toISOString(); save(); rr();
+        };
+        $('#cSimDown').onclick = () => {
+          const on = c.cams.filter(camOnline); if (!on.length) return;
+          const x = on[Math.floor(Math.random() * on.length)];
+          c.events.push({ id: nextId(c.events), cam_id: x.id, start: new Date(Date.now() - (c.settings.email_after_min + 1) * MIN).toISOString(), end: null });
+          save(); rr(); toast(`${x.name} mati lebih dari ${c.settings.email_after_min} menit — di aplikasi asli email notifikasi terkirim.`, false);
+        };
+        cctvTimer = setInterval(() => {
+          if (!$('#cctvLive')) { clearInterval(cctvTimer); cctvTimer = null; return; }
+          $$('[data-dur]').forEach((el) => (el.textContent = durText(Date.now() - new Date(el.dataset.dur).getTime())));
+        }, 20000);
+      }
+      if (cctvUi.tab === 'checklist') {
+        $('#clDate').onchange = (e) => { cctvUi.date = e.target.value; rr(); };
+        $('#clShift').onchange = (e) => { cctvUi.shift = e.target.value; rr(); };
+        if ($('#clForm')) $('#clForm').onsubmit = (e) => {
+          e.preventDefault(); const f = formData(e.target); const ds = $('#clDate').value; const sh = $('#clShift').value;
+          const items = {}; c.cams.forEach((x) => { items[x.id] = { ok: f['ok_' + x.id] === '1', note: (f['note_' + x.id] || '').trim() }; });
+          c.checklists[ds] = c.checklists[ds] || {}; c.checklists[ds][sh] = { by: currentUser().full_name, at: new Date().toISOString(), items };
+          save(); rr(); toast(`Checklist ${sh} ${fmtDate(ds)} tersimpan.`);
+        };
+      }
+      if (cctvUi.tab === 'listview') {
+        $$('[data-lvnvr]').forEach((b) => (b.onclick = () => { cctvUi.lvNvr = +b.dataset.lvnvr; rr(); }));
+        $('#lvSnap').onclick = () => { const t = new Date().toISOString(); c.cams.filter((x) => x.nvr_id === cctvUi.lvNvr).forEach((x) => (c.snapshots[x.id] = t)); save(); rr(); toast('Snapshot diambil (menimpa snapshot sebelumnya).'); };
+        $('#lvCsv').onclick = () => { const n = nvrById(cctvUi.lvNvr); downloadCsv(`list_view_${n.name.replace(/\s+/g, '_')}.csv`, [['No', 'Nama CCTV', 'Lokasi', 'Type', 'Channel', 'IP Address', 'Status'], ...c.cams.filter((x) => x.nvr_id === n.id).map((x, i) => [i + 1, x.name, x.location, x.type, x.channel, x.ip, camOnline(x) ? 'Online' : 'Offline'])]); };
+      }
+      if (cctvUi.tab === 'report') {
+        $('#rpMonth').onchange = (e) => { cctvUi.month = e.target.value; rr(); };
+        $$('[data-csv]').forEach((b) => (b.onclick = () => {
+          const n = nvrById(+b.dataset.csv); const ym = cctvUi.month || todayStr().slice(0, 7); const days = monthDays(ym);
+          const sym = { ok: 'V', bad: 'X', L: 'L' };
+          downloadCsv(`rekap_${n.name.replace(/\s+/g, '_')}_${ym}.csv`, [['Nama CCTV', ...days.map((d) => +d.slice(8))], ...c.cams.filter((x) => x.nvr_id === n.id).map((x) => [x.name, ...days.map((d) => sym[dayStatus(x, d)] || '')])]);
+        }));
+      }
+      if (cctvUi.tab === 'log') {
+        $('#logCsv').onclick = () => downloadCsv('log_cctv_mati.csv', [['Nama CCTV', 'NVR', 'Mati', 'Pulih', 'Durasi'], ...c.events.map((e) => { const x = c.cams.find((k) => k.id === e.cam_id); return [x.name, nvrById(x.nvr_id).name, fmtDateTime(e.start), e.end ? fmtDateTime(e.end) : 'Masih mati', durText((e.end ? new Date(e.end) : new Date()) - new Date(e.start))]; })]);
+      }
+      if (cctvUi.tab === 'settings') {
+        $('#csForm').onsubmit = (e) => {
+          e.preventDefault(); const f = formData(e.target);
+          Object.assign(c.settings, { email_after_min: +f.email_after_min, email_to: f.email_to.trim(), snapshot_schedule: f.snapshot_schedule, off_weekdays: [0, 1, 2, 3, 4, 5, 6].filter((d) => f['off_' + d]) });
+          save(); rr(); toast('Pengaturan CCTV disimpan.');
+        };
+        $('#hForm').onsubmit = (e) => { e.preventDefault(); const f = formData(e.target); c.holidays = c.holidays.filter((h) => h.date !== f.date); c.holidays.push({ date: f.date, name: f.name.trim() }); save(); rr(); toast('Hari libur ditambahkan.'); };
+        $$('[data-hdel]').forEach((b) => (b.onclick = async () => { if (!(await ask('Hapus hari libur ini?', 'Hapus'))) return; c.holidays = c.holidays.filter((h) => h.date !== b.dataset.hdel); save(); rr(); }));
+      }
+    },
+  };
+
+  // Banner kamera mati di Dashboard admin
+  const _dashRender = PAGES.dashboard.render;
+  PAGES.dashboard.render = function () {
+    const off = C().cams.filter((x) => !camOnline(x));
+    const banner = off.length ? `<a href="#/cctv" data-cctv-mon class="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-4 hover:bg-red-100">${icon('camera', 'w-5 h-5')}<span class="text-sm"><b>${off.length} CCTV mati:</b> ${off.map((x) => esc(x.name)).join(', ')}</span><span class="ml-auto text-xs font-semibold whitespace-nowrap">Lihat Monitoring →</span></a>` : '';
+    return banner + _dashRender.call(this);
+  };
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-cctv-mon]')) cctvUi.tab = 'monitor'; }, true);
+
+  // ------------------------------------------------------------------
+  // Ext Telepon
+  // ------------------------------------------------------------------
+  const extUi = { q: '' };
+  PAGES['phone-ext'] = {
+    render() {
+      const q = extUi.q.toLowerCase();
+      const rows = [...db.phoneExt].sort((a, b) => a.ext.localeCompare(b.ext, undefined, { numeric: true }))
+        .filter((x) => !q || [x.ext, x.name, x.department, x.location].join(' ').toLowerCase().includes(q));
+      return `<div class="bg-white rounded-xl shadow-sm p-3 mb-4 flex flex-wrap items-center gap-2">
+  <div class="relative flex-1 min-w-[12rem]"><span class="absolute left-3 top-2.5 text-slate-400">${icon('search')}</span><input id="extQ" value="${esc(extUi.q)}" placeholder="Cari nomor, nama, departemen…" class="${inputCls} pl-9"></div>
+  ${isAdmin() ? `<button id="extAdd" class="${btnPrimary}">${icon('plus')} Tambah</button>` : ''}
+  <button id="extCsv" class="${btnGhost}">${icon('download')} Export</button>
+</div>
+<div class="bg-white rounded-xl shadow-sm overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-slate-500 bg-slate-50 border-b"><th class="py-2 px-3">Ext</th><th class="py-2 px-3">Nama</th><th class="py-2 px-3">Departemen</th><th class="py-2 px-3">Lokasi</th>${isAdmin() ? '<th class="py-2 px-3 w-24"></th>' : ''}</tr></thead>
+<tbody>${rows.map((x) => `<tr class="border-b last:border-0"><td class="py-2 px-3 font-bold text-brand-700">${esc(x.ext)}</td><td class="py-2 px-3 font-medium">${esc(x.name)}</td><td class="py-2 px-3 text-slate-500">${esc(x.department)}</td><td class="py-2 px-3 text-slate-500">${esc(x.location)}</td>
+${isAdmin() ? `<td class="py-2 px-3 whitespace-nowrap text-right"><button data-extedit="${x.id}" class="text-blue-600 hover:text-blue-800 mr-2">${icon('pencil')}</button><button data-extdel="${x.id}" class="text-red-500 hover:text-red-700">${icon('trash')}</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="5" class="py-6 text-center text-slate-400">Tidak ada data.</td></tr>`}</tbody></table></div></div>`;
+    },
+    bind() {
+      const q = $('#extQ'); q.oninput = () => { extUi.q = q.value; const pos = q.selectionStart; render(); const n = $('#extQ'); n.focus(); n.setSelectionRange(pos, pos); };
+      $('#extCsv').onclick = () => downloadCsv('ext_telepon.csv', [['Ext', 'Nama', 'Departemen', 'Lokasi'], ...db.phoneExt.map((x) => [x.ext, x.name, x.department, x.location])]);
+      const formModal = (x) => openModal(x ? 'Edit Ext Telepon' : 'Tambah Ext Telepon', `<form id="extForm" class="space-y-3">
+        ${field('Nomor Ext', `<input name="ext" required value="${esc(x ? x.ext : '')}" class="${inputCls}">`)}${field('Nama / Ruangan', `<input name="name" required value="${esc(x ? x.name : '')}" class="${inputCls}">`)}
+        ${field('Departemen', `<input name="department" value="${esc(x ? x.department : '')}" class="${inputCls}">`)}${field('Lokasi', `<input name="location" value="${esc(x ? x.location : '')}" class="${inputCls}">`)}
+        <div class="flex justify-end"><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, {
+        onMount: (w) => { $('#extForm', w).onsubmit = (e) => { e.preventDefault(); const f = formData(e.target); const d = { ext: f.ext.trim(), name: f.name.trim(), department: f.department.trim(), location: f.location.trim() };
+          if (db.phoneExt.some((y) => y.ext === d.ext && (!x || y.id !== x.id))) { toast('Nomor ext sudah dipakai.', false); return; }
+          if (x) Object.assign(x, d); else db.phoneExt.push({ id: nextId(db.phoneExt), ...d }); save(); closeModal(); render(); toast('Ext telepon disimpan.'); }; } });
+      if ($('#extAdd')) $('#extAdd').onclick = () => formModal(null);
+      $$('[data-extedit]').forEach((b) => (b.onclick = () => formModal(db.phoneExt.find((x) => x.id === +b.dataset.extedit))));
+      $$('[data-extdel]').forEach((b) => (b.onclick = async () => { if (!(await ask('Hapus ext telepon ini?', 'Hapus'))) return; db.phoneExt = db.phoneExt.filter((x) => x.id !== +b.dataset.extdel); save(); render(); }));
+    },
+  };
+  ADMIN_NAV.splice(ADMIN_NAV.findIndex((n) => n[0] === 'pcpw') + 1, 0, ['cctv', 'camera', 'CCTV'], ['phone-ext', 'phone', 'Ext Telepon']);
+  USER_NAV.push(['cctv', 'camera', 'Checklist CCTV'], ['phone-ext', 'phone', 'Ext Telepon']);
 
   // ------------------------------------------------------------------
   render();
