@@ -73,13 +73,14 @@
         <li data-en="Open <code class=&quot;bg-slate-100 px-1.5 py-0.5 rounded break-all&quot;>http://localhost/asker-it-asset/</code>. The installer opens automatically.">Buka <code class="bg-slate-100 px-1.5 py-0.5 rounded break-all">http://localhost/asker-it-asset/</code>. Halaman instalasi terbuka otomatis.</li>
         <li data-en="Fill in the database details, system name, and first admin account, then click <b>Instal sekarang</b> (Install now).">Isi data database, nama sistem, dan akun admin pertama, lalu klik <b>Instal sekarang</b>.</li>
         <li data-en="Log in, then delete <code class=&quot;bg-slate-100 px-1.5 py-0.5 rounded&quot;>install.php</code> from the server.">Login, lalu hapus file <code class="bg-slate-100 px-1.5 py-0.5 rounded">install.php</code> dari server.</li>
+        <li data-en="Optional, for the CCTV menu: add the <b>CCTV</b> and <b>NVR</b> asset categories, enter the NVRs in CCTV &rarr; Settings, run <code class=&quot;bg-slate-100 px-1.5 py-0.5 rounded break-all&quot;>scripts\pasang_jadwal_cctv.bat</code> as administrator, and install ffmpeg on the server for live preview.">Opsional, untuk menu CCTV: tambahkan kategori aset <b>CCTV</b> dan <b>NVR</b>, isi data NVR di CCTV &rarr; Pengaturan, jalankan <code class="bg-slate-100 px-1.5 py-0.5 rounded break-all">scripts\pasang_jadwal_cctv.bat</code> sebagai administrator, dan pasang ffmpeg di server untuk live preview.</li>
       </ol>
-      <p data-en="The install guide (<code>PANDUAN_INSTALASI.md</code>) and a 25-page illustrated <a href=&quot;download/Panduan-Penggunaan-ASKER-IT-Asset.pdf&quot; class=&quot;text-brand-700 underline&quot;>user guide (PDF)</a> are included in the ZIP. Both are written in Indonesian." class="text-xs text-slate-500 mt-4">Panduan instalasi (<code>PANDUAN_INSTALASI.md</code>) dan <a href="download/Panduan-Penggunaan-ASKER-IT-Asset.pdf" class="text-brand-700 underline">panduan penggunaan bergambar 25 halaman (PDF)</a> sudah ada di dalam ZIP.</p>
+      <p data-en="The install guide (<code>PANDUAN_INSTALASI.md</code>) and a 33-page illustrated <a href=&quot;download/Panduan-Penggunaan-ASKER-IT-Asset.pdf&quot; class=&quot;text-brand-700 underline&quot;>user guide (PDF)</a> are included in the ZIP. Both are written in Indonesian." class="text-xs text-slate-500 mt-4">Panduan instalasi (<code>PANDUAN_INSTALASI.md</code>) dan <a href="download/Panduan-Penggunaan-ASKER-IT-Asset.pdf" class="text-brand-700 underline">panduan penggunaan bergambar 33 halaman (PDF)</a> sudah ada di dalam ZIP.</p>
     </div>
     <div class="bg-white rounded-2xl p-6 shadow-sm">
       <h2 data-en="Requirements and notes" class="text-xl font-bold mb-3">Kebutuhan dan catatan</h2>
       <ul class="list-disc pl-5 space-y-2 text-sm text-slate-700">
-        <li data-en="PHP 8.0 or newer with the <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, and <code>zip</code> extensions.">PHP 8.0 atau lebih baru dengan ekstensi <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, <code>zip</code>.</li>
+        <li data-en="PHP 8.0 or newer with the <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, <code>zip</code>, and <code>curl</code> extensions. ffmpeg is only needed for CCTV live preview.">PHP 8.0 atau lebih baru dengan ekstensi <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, <code>zip</code>, <code>curl</code>. ffmpeg hanya dibutuhkan untuk live preview CCTV.</li>
         <li data-en="MySQL or MariaDB. XAMPP is enough.">MySQL atau MariaDB. XAMPP sudah cukup.</li>
         <li data-en="Libraries are bundled in the ZIP, so <code>composer install</code> is not needed.">Pustaka pendukung sudah ada di dalam ZIP, tidak perlu <code>composer install</code>.</li>
         <li data-en="Designed for an <b>internal office network</b>. Do not expose it to the internet without extra protection.">Dirancang untuk <b>jaringan internal kantor</b>. Jangan dibuka langsung ke internet tanpa pengamanan tambahan.</li>
@@ -96,6 +97,8 @@
       <img src="screenshots/10-export-audit.jpg" alt="Menu Export Audit" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
       <img src="screenshots/11-ganti-password-pc.jpg" alt="Menu Ganti Password PC" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
       <img src="screenshots/12-signature-email.jpg" alt="Menu Signature Email" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
+      <img src="screenshots/14-cctv-monitoring.jpg" alt="Menu CCTV: monitoring dan live preview" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
+      <img src="screenshots/16-cctv-checklist.jpg" alt="Checklist CCTV harian" loading="lazy" class="rounded-xl border border-slate-200 shadow-sm w-full">
     </div>
     <p data-en="Screenshots are taken from the demo. All data shown is sample data, and the demo interface is in Indonesian." class="text-xs text-slate-500 mt-3">Tangkapan layar diambil dari versi demo. Semua data di dalamnya adalah data contoh.</p>
   </section>
