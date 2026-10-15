@@ -53,8 +53,8 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
 - 🆕 **File Excel seragam** — semua export dan template import memuat logo, judul otomatis (mis. *Data Desktop PC dan Laptop*),
   tanggal dibuat, jumlah data, dan kolom **No**. Judul kolom di baris 8; import mengenali susunan baru maupun file lama.
 - 🆕 **Filter Lokasi** di daftar aset, dan **tombol VNC** di samping IP aset untuk membuka TightVNC Viewer dari PC admin.
-- 🆕 **CCTV** — status kamera dibaca langsung dari NVR Hikvision/Dahua (atau IP kamera) dan tampil **realtime**,
-  log CCTV mati, pop-up web dan **email jika kamera mati ≥ 30 menit**, **checklist digital** Pagi & Sore pengganti form kertas
+- 🆕 **CCTV** — status kamera dibaca langsung dari NVR Hikvision/Dahua (atau IP kamera) dan tampil **realtime**, dengan **live preview & video dari RTSP sub-stream**,
+  log CCTV mati, pop-up web (≥ 10 menit) dan **email jika kamera mati ≥ 30 menit**, **checklist digital** Pagi & Sore pengganti form kertas
   (hari libur Sabtu/Minggu & libur nasional bisa diatur), laporan petugas, **List View** dengan snapshot kamera,
   import CCTV/NVR dari Excel, dan **Export Excel rekap bulanan per NVR** (cover multi-view, rekap 1 lembar A4, log CCTV mati).
 - 🆕 **Ext Telepon** — daftar nomor extension kantor (admin & user), siap cetak/PDF/Excel.
