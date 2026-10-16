@@ -58,6 +58,11 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
   (hari libur Sabtu/Minggu & libur nasional bisa diatur), laporan petugas, **List View** dengan snapshot kamera,
   import CCTV/NVR dari Excel, dan **Export Excel rekap bulanan per NVR** (cover multi-view, rekap 1 lembar A4, log CCTV mati).
 - 🆕 **Ext Telepon** — daftar nomor extension kantor (admin & user), siap cetak/PDF/Excel.
+- 🆕 **Jaringan** — cek koneksi semua aset ber-IP sekali klik (ping + cek port bila ping diblokir), deteksi switch diduga mati,
+  **topologi otomatis** dari data "Terhubung ke" dengan semua IP perangkat, **kotak per lokasi**, **warna kabel per switch/router**,
+  mode **Geser bebas** seperti Visio (posisi tersimpan), scan subnet untuk menemukan perangkat yang belum terdaftar, serta cetak/PDF berkop.
+- 🆕 **Perangkat Jaringan & Printer** — form dan import Excel khusus switch/hub/router/AP: banyak IP per router, port `eth`/`sfp`,
+  port uplink dua sisi, dan koneksi tambahan (mis. NVR dengan 2 LAN). Printer: koneksi USB/LAN dan milik perusahaan/sewa.
 - 🆕 **Akses tambahan user** — Tablet (QME) dan **Checklist CCTV** (mis. Security), dicentang di Management User.
 
 **User**
@@ -82,6 +87,10 @@ backup database otomatis, installer web.
 (Import Aset + User di demo memakai SheetJS dari CDN, jadi perlu koneksi internet.)
 
 ## Screenshot
+
+| Topologi Jaringan | Geser Bebas |
+|---|---|
+| ![Topologi Jaringan](screenshots/17-jaringan-topologi.jpg) | ![Geser Bebas](screenshots/18-jaringan-geser-bebas.jpg) |
 
 | Mutasi Aset | Export Audit |
 |---|---|
