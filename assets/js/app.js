@@ -488,7 +488,7 @@
     <div class="space-y-2 mb-5">
       <button data-quick="admin" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 text-left transition">
         <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">${icon('dashboard', 'w-5 h-5')}</span>
-        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai Admin</span><span class="block text-xs text-slate-500">Aset, ticketing, stok, CCTV, ext telepon, audit</span></span>
+        <span><span class="block text-sm font-semibold text-slate-800">Masuk sebagai Admin</span><span class="block text-xs text-slate-500">Aset, ticketing, stok, CCTV, jaringan, ext telepon, audit</span></span>
       </button>
       <button data-quick="user" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-3 text-left transition">
         <span class="w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center">${icon('monitor', 'w-5 h-5')}</span>
@@ -2693,6 +2693,759 @@ ${isAdmin() ? `<td class="py-2 px-3 whitespace-nowrap text-right"><button data-e
   };
   ADMIN_NAV.splice(ADMIN_NAV.findIndex((n) => n[0] === 'pcpw') + 1, 0, ['cctv', 'camera', 'CCTV'], ['phone-ext', 'phone', 'Ext Telepon']);
   USER_NAV.push(['cctv', 'camera', 'Checklist CCTV'], ['phone-ext', 'phone', 'Ext Telepon']);
+
+  // ------------------------------------------------------------------
+  // Jaringan (demo): cek koneksi, topologi (kotak per lokasi, warna kabel, geser bebas), scan subnet, data koneksi.
+  // Kode topologi sama dengan aplikasi asli; ping & scan disimulasikan di browser, data tersimpan di localStorage.
+  // ------------------------------------------------------------------
+  ICONS.network = '<rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/>';
+  function netSeed() {
+    const D = [];
+    // [id, nama, jenis, lokasi, ip, induk, port induk, port sendiri, perangkat jaringan, brand/type, kondisi demo, semua IP]
+    const add = (id, name, type, loc, ip, parent, port, own, isNet, brand, cond, ips) => D.push({ id, number: 'DEMO/NET/' + String(id).padStart(3, '0'), type, name, loc, ip: ip || '', is_net: !!isNet, parent: parent || null, port: port || '', own_port: own || '', brand: brand || '', cond: cond || 'ok', ips: ips || [] });
+    add(9001, 'ISP Gateway', 'Router', 'Ruang Server', '203.0.113.9', null, '', '', 1, 'MikroTik CCR2004-16G-2S+', 'ok', ['203.0.113.9', '203.0.113.10', '203.0.113.11']);
+    add(9002, 'Firewall', 'Firewall', 'Ruang Server', '203.0.113.12', 9001, 'eth1', 'eth2', 1, 'Fortinet FortiGate 100E', 'ok', ['203.0.113.12', '192.168.30.1/24']);
+    add(9003, 'Core Router', 'Router', 'Ruang Server', '192.168.10.1', 9002, 'eth1', 'eth1', 1, 'MikroTik RB5009UG', 'ok', ['192.168.10.1/24', '192.168.20.1/24', '192.168.50.1/24']);
+    add(9004, 'Main Switch Lokal', 'Switch', 'Ruang Server', '', 9003, 'eth2', 'eth1', 1, 'D-Link DGS-1210');
+    add(9005, 'Main Switch FO', 'Switch', 'Ruang Server', '', null, '', '', 1, 'TP-Link MC220L');
+    add(9006, 'NVR 1', 'NVR', 'Ruang Server', '192.168.20.2', 9004, 'eth5', 'eth1');
+    add(9007, 'Server NAS', 'Server', 'Ruang Server', '192.168.10.8');
+    add(9008, 'Server Email', 'Server', 'RUANG SERVER', '192.168.10.4');
+    add(9009, 'Server Inventory', 'Server', 'Ruang Server', '192.168.10.12', null, '', '', 0, '', 'slow');
+    add(9010, 'Switch PoE CCTV Gudang', 'Switch', 'Gudang', '', 9004, 'eth8', 'eth1', 1, 'Hikvision DS-3E0318P');
+    add(9011, 'CCTV Gudang A1', 'CCTV', 'Gudang', '192.168.20.141', 9010, 'eth1');
+    add(9012, 'CCTV Gudang A2', 'CCTV', 'Gudang', '192.168.20.142', 9010, 'eth2');
+    add(9013, 'CCTV Gudang B1', 'CCTV', 'Gudang', '192.168.20.161', 9010, 'eth3', '', 0, '', 'down');
+    add(9014, 'Switch Office Lt.2', 'Switch', 'Office Lt.2', '', 9004, 'eth10', 'eth1', 1, 'TP-Link TL-SG1016D');
+    add(9015, 'PC Budi Santoso', 'Desktop PC', 'Office Lt.2', '192.168.10.31', 9014, 'eth2');
+    add(9016, 'PC Dewi Lestari', 'Desktop PC', 'Office Lt.2', '192.168.10.32', 9014, 'eth3');
+    add(9017, 'Laptop Rina Kartika', 'Laptop', 'Office Lt.2', '192.168.10.33', 9014, 'eth4', '', 0, '', 'down');
+    add(9018, 'Printer Office', 'Printer', 'Office Lt.2', '192.168.10.40', 9014, 'eth5');
+    add(9019, 'AP Kantin', 'Access Point', 'Kantin', '192.168.10.60', 9004, 'eth12', 'eth1', 1, 'Ubiquiti UniFi U6 Lite');
+    add(9020, 'CCTV Pos Satpam', 'CCTV', 'Pos Satpam', '192.168.20.120', 9010, 'eth6');
+    add(9021, 'CCTV Kantin', 'CCTV', 'Kantin', '192.168.20.121');
+    add(9022, 'Switch PoE Parkiran', 'Switch', 'Parkiran', '', null, '', '', 1, 'Hikvision DS-3E0105P');
+    add(9023, 'CCTV Parkiran Motor', 'CCTV', 'Parkiran', '192.168.20.130', 9022, 'eth1');
+    return {
+      devices: D,
+      extra: [{ id: 1, a: 9010, b: 9005, port_a: 'sfp1', port_b: 'eth3, eth4' }, { id: 2, a: 9022, b: 9005, port_a: 'sfp1', port_b: 'eth7' }, { id: 3, a: 9006, b: 9010, port_a: 'eth2', port_b: 'eth16' }],
+      status: {}, checks: [], pos: {}, scans: {}, subnets: ['192.168.10.0/24', '192.168.20.0/24'],
+    };
+  }
+  if (!db.net) { db.net = netSeed(); save(); }
+  const _origReset2 = resetDemo;
+  resetDemo = function () { _origReset2(); db.net = netSeed(); save(); };
+  const N = () => db.net;
+  const netUi = { tab: 'topo' };
+  const NET_TABS = [['check', 'Cek jaringan'], ['topo', 'Topologi'], ['scan', 'Scan jaringan'], ['links', 'Data koneksi']];
+  const nowSql = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+  const netAssets = () => N().devices.map((d) => { const s = N().status[d.id] || {}; return Object.assign({ asset_status: 'Digunakan', ports: 0, sfp: 0, state: s.state || null, ms: s.ms != null ? s.ms : null, loss: s.loss != null ? s.loss : null, method: s.method || '', detail: s.detail || '', checked_at: s.checked_at || null }, d); });
+  // Hasil ping simulasi: kondisi demo + sedikit acak supaya terasa hidup.
+  function netPing(d) {
+    if (!d.ip) return null;
+    const r = Math.random();
+    if (d.cond === 'down') return { state: 'err', ms: null, loss: 100, method: 'ping', detail: 'Tidak membalas ping maupun port TCP' };
+    if (d.cond === 'slow') return { state: 'warn', ms: 120 + Math.round(r * 80), loss: 0, method: 'ping', detail: '4/4 balasan ping, rata-rata tinggi' };
+    const ms = 1 + Math.round(r * 6);
+    return { state: 'ok', ms, loss: 0, method: 'ping', detail: `4/4 balasan ping, maks ${ms + 2} ms` };
+  }
+  function netSuspects() {
+    const A = netAssets(), out = [];
+    A.filter((a) => a.is_net && !a.ip).forEach((sw) => {
+      const desc = []; const st = [sw.id]; while (st.length) { const c = st.pop(); A.forEach((k) => { if (k.parent === c) { desc.push(k); st.push(k.id); } }); }
+      const kids = desc.filter((k) => k.ip && k.state);
+      if (kids.length >= 2 && kids.every((k) => k.state === 'err')) out.push({ name: sw.name, down: kids.length, total: kids.length });
+    });
+    return out;
+  }
+  const suspectsHtml = () => `<div id="netSuspects">${netSuspects().map((s) => `<div class="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 mb-3 text-sm"><b>Kemungkinan ${esc(s.name)} mati atau kabel uplink-nya putus</b> (${s.down} dari ${s.total} aset di bawahnya tidak merespons).</div>`).join('')}</div>`;
+  function netPost(fd) {
+    const act = fd.get('action'), ok = (d) => Promise.resolve({ ok: true, json: () => Promise.resolve(Object.assign({ ok: true }, d || {})) });
+    const delay = (ms, v) => new Promise((res) => setTimeout(() => res(v), ms));
+    if (act === 'check') {
+      const ids = fd.getAll('ids[]').map(Number), at = nowSql();
+      const results = ids.map((id) => { const d = N().devices.find((x) => x.id === id); const p = d && netPing(d); if (!p) return null; const r = Object.assign({ id, checked_at: at }, p); N().status[id] = r; return r; }).filter(Boolean);
+      save(); return delay(450, null).then(() => ok({ results }));
+    }
+    if (act === 'check_done') {
+      const ids = fd.getAll('ids[]').map(Number), A = netAssets().filter((a) => ids.includes(a.id) && a.state);
+      const bad = A.filter((a) => a.state !== 'ok');
+      N().checks.unshift({ at: nowSql(), by: currentUser().full_name, n: A.length, ok: A.filter((a) => a.state === 'ok').length, warn: A.filter((a) => a.state === 'warn').length, err: A.filter((a) => a.state === 'err').length,
+        detail: netSuspects().map((s) => 'Diduga mati: ' + s.name).concat(bad.map((a) => `${a.name} (${a.ip}) ${a.state === 'err' ? 'MATI' : 'LAMBAT ' + a.ms + ' ms / ' + a.loss + '%'}`)).join('\n') });
+      N().checks = N().checks.slice(0, 8); save(); return ok({ suspects: netSuspects() });
+    }
+    if (act === 'scan_chunk') {
+      const net = fd.get('subnet'), pre = net.split('.').slice(0, 3).join('.') + '.', from = +fd.get('from'), to = +fd.get('to'), found = {};
+      const extras = { '192.168.10.': [[77, 'Xiaomi Communications', 'android-hp-tamu'], [91, 'Apple, Inc.', 'iPhone']], '192.168.20.': [[188, 'Hangzhou Hikvision', '']] };
+      N().devices.forEach((d) => { if (d.cond !== 'down' && d.ip.startsWith(pre)) { const o = +d.ip.slice(pre.length); if (o >= from && o <= to) found[d.ip] = { ms: 1 + (o % 5), mac: '02:00:5E:' + pad(o % 100) + ':' + pad(d.id % 100) + ':01', vendor: '', host: '' }; } });
+      (extras[pre] || []).forEach(([o, v, h]) => { if (o >= from && o <= to) found[pre + o] = { ms: 3, mac: 'A4:' + pad(o % 100) + ':7C:3B:9E:' + pad((o * 7) % 100), vendor: v, host: h }; });
+      return delay(260, null).then(() => ok({ found }));
+    }
+    if (act === 'scan_finish') {
+      const net = fd.get('subnet'), pre = net.split('.').slice(0, 3).join('.') + '.', found = JSON.parse(fd.get('found') || '{}');
+      const byIp = {}; N().devices.forEach((d) => { (d.ip ? [d.ip] : []).concat(d.ips.map((x) => x.split('/')[0])).forEach((ip) => { if (!byIp[ip]) byIp[ip] = d; }); });
+      const rows = Object.keys(found).sort((a, b) => +a.split('.')[3] - +b.split('.')[3]).map((ip) => { const f = found[ip], d = byIp[ip]; return { ip, ms: f.ms, mac: f.mac, vendor: f.vendor, host: f.host, asset_id: d ? d.id : null, asset_name: d ? d.name : '', asset_number: d ? d.number : '' }; });
+      const missing = N().devices.filter((d) => d.ip.startsWith(pre) && !found[d.ip]).map((d) => `${d.name} (${d.ip})`);
+      const res = { subnet: net, scanned_at: nowSql(), rows, missing }; N().scans[net] = res; save(); return ok(res);
+    }
+    if (act === 'topo_pos') { N().pos = JSON.parse(fd.get('pos') || '{}'); save(); return ok(); }
+    if (act === 'topo_pos_reset') { N().pos = {}; save(); return ok(); }
+    return ok();
+  }
+  // Kode asli menu Jaringan (topologi, cek, scan), dibungkus supaya memakai data demo.
+  function netInit(cfg) {
+
+    var ASSETS = cfg.assets;
+    var EXTRA = cfg.extra;
+    var TOPO_POS = cfg.pos;
+    var CSRF = "demo";
+    var SAVED = cfg.saved;
+    var T = {"ok":"Normal","warn":"Lambat","err":"Mati","na":"Belum dicek","recheck":"Cek ulang","checking":"Mengecek…","of":"dari","assets":"aset","done":"Selesai","none":"Tidak ada aset yang cocok.","notLinked":"Belum dihubungkan","dev":"perangkat","orderSaved":"Posisi topologi disimpan.","orderReset":"Topologi kembali ke susunan otomatis.","orderResetQ":"Hapus semua posisi yang diatur manual dan kembali ke susunan otomatis?","orderDiscard":"Perubahan posisi belum disimpan. Batalkan perubahan?","noIp":"tanpa IP","suspect":"diduga mati","inferred":"disimpulkan","below":"Di bawahnya","extra":"Koneksi tambahan","connected":"Terhubung ke","result":"Hasil cek","loss":"paket hilang","scanning":"Memeriksa","reading":"Membaca tabel ARP & nama host…","registered":"Terdaftar","unregistered":"Tidak terdaftar","active":"perangkat aktif","notReg":"tidak terdaftar di menu Aset","missing":"Aset terdaftar yang tidak ditemukan","register":"Daftarkan","lastScan":"Hasil scan terakhir","failed":"Gagal"};
+    var byId = {}; ASSETS.forEach(function (a) { byId[a.id] = a; });
+    // ---- Pilihan dengan kotak cari (selalu membuka ke BAWAH), menggantikan <select data-combo> yang panjang ----
+    [].forEach.call(document.querySelectorAll('select[data-combo]'), function (sel) {
+        var wrap = document.createElement('div'); wrap.className = 'relative'; wrap.style.minWidth = '220px';
+        var inp = document.createElement('input'); inp.type = 'text'; inp.autocomplete = 'off';
+        inp.className = 'w-full border border-slate-300 rounded-lg px-2 py-1.5 bg-white text-sm pr-7';
+        inp.placeholder = 'Ketik untuk mencari…';
+        var caret = document.createElement('span'); caret.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs'; caret.textContent = '▼';
+        var list = document.createElement('div');
+        list.className = 'hidden absolute left-0 top-full mt-1 z-50 w-full min-w-[280px] max-h-72 overflow-y-auto bg-white border border-slate-300 rounded-lg shadow-lg text-sm';
+        sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(inp); wrap.appendChild(caret); wrap.appendChild(list); wrap.appendChild(sel);
+        sel.style.display = 'none';
+        var items = [], active = -1;
+        [].forEach.call(sel.children, function (ch) {
+            var opts = ch.tagName === 'OPTGROUP' ? [].slice.call(ch.children) : [ch];
+            if (ch.tagName === 'OPTGROUP') items.push({group: ch.label});
+            opts.forEach(function (o) { items.push({value: o.value, text: o.textContent, q: o.textContent.toLowerCase()}); });
+        });
+        var label = function () { var o = sel.options[sel.selectedIndex]; return o ? o.textContent : ''; };
+        inp.value = label();
+        var render = function (q) {
+            var w = (q || '').toLowerCase().trim().split(/\s+/).filter(Boolean), html = '', pend = null, n = 0;
+            items.forEach(function (it, i) {
+                if (it.group !== undefined) { pend = it.group; return; }
+                if (!w.every(function (x) { return it.q.indexOf(x) >= 0; })) return;
+                if (pend !== null) { html += '<div class="px-3 pt-2 pb-1 text-xs font-semibold text-slate-500 bg-slate-50 sticky top-0">' + esc(pend) + '</div>'; pend = null; }
+                html += '<div class="cb-opt px-3 py-1.5 cursor-pointer hover:bg-blue-50' + (it.value === sel.value ? ' font-semibold text-blue-700' : '') + '" data-i="' + i + '">' + esc(it.text) + '</div>'; n++;
+            });
+            list.innerHTML = html || '<div class="px-3 py-2 text-slate-400">Tidak ditemukan</div>';
+            active = -1;
+        };
+        var open = function () { render(inp.value === label() ? '' : inp.value); list.classList.remove('hidden'); };
+        var close = function () { list.classList.add('hidden'); inp.value = label(); };
+        var choose = function (i) { sel.value = items[i].value; sel.dispatchEvent(new Event('change', {bubbles: true})); close(); };
+        inp.addEventListener('focus', function () { inp.select(); open(); });
+        inp.addEventListener('input', function () { render(inp.value); list.classList.remove('hidden'); });
+        inp.addEventListener('keydown', function (e) {
+            var opts = list.querySelectorAll('.cb-opt');
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault(); if (list.classList.contains('hidden')) open();
+                active = Math.max(0, Math.min(opts.length - 1, active + (e.key === 'ArrowDown' ? 1 : -1)));
+                [].forEach.call(opts, function (o, k) { o.classList.toggle('bg-blue-100', k === active); });
+                if (opts[active]) opts[active].scrollIntoView({block: 'nearest'});
+            } else if (e.key === 'Enter') { e.preventDefault(); var t = opts[active >= 0 ? active : 0]; if (t) choose(+t.dataset.i); }
+            else if (e.key === 'Escape') { close(); inp.blur(); }
+        });
+        list.addEventListener('mousedown', function (e) { var t = e.target.closest('.cb-opt'); if (t) { e.preventDefault(); choose(+t.dataset.i); } });
+        inp.addEventListener('blur', function () { setTimeout(close, 120); });
+    });
+    function plabel(up, own) { up = (up || '').trim(); own = (own || '').trim(); return up && own ? up + ' ⇄ ' + own : (up || (own ? '⇄ ' + own : '')); }
+    // Pilihan port mengikuti perangkat yang dipilih (datalist "pl_<id>").
+    [].forEach.call(document.querySelectorAll('select.port-src'), function (sel) {
+        var inp = document.getElementById(sel.dataset.port); if (!inp) return;
+        var sync = function () { if (sel.value && sel.value !== '0') inp.setAttribute('list', 'pl_' + sel.value); else inp.removeAttribute('list'); };
+        sel.addEventListener('change', sync); sync();
+    });
+    // ---- Data koneksi: cari, filter, pilih beberapa / semua, aksi massal ----
+    (function () {
+        var bar = document.getElementById('linksBar'); if (!bar) return;
+        var rowsL = [].slice.call(document.querySelectorAll('tr.lk-row')), q = document.getElementById('lkQ'), ft = document.getElementById('lkType'), fl = document.getElementById('lkLoc');
+        var all = document.getElementById('lkAll'), bulk = document.getElementById('lkBulk'), selN = document.getElementById('lkSelN'), cnt = document.getElementById('lkCount');
+        var setH = function () { document.documentElement.style.setProperty('--lsb-h', bar.offsetHeight + 'px'); };
+        var picked = function () { return rowsL.filter(function (r) { return r.querySelector('.lk-pick').checked; }); };
+        var sync = function () { var n = picked().length; selN.textContent = n; bulk.classList.toggle('hidden', !n); setH(); };
+        var filter = function () {
+            var t = (q.value || '').toLowerCase().trim().split(/\s+/).filter(Boolean), shown = 0;
+            rowsL.forEach(function (r) {
+                var ok = (!ft.value || r.dataset.type === ft.value) && (!fl.value || r.dataset.loc === fl.value) && t.every(function (w) { return r.dataset.q.indexOf(w) >= 0; });
+                r.classList.toggle('hidden', !ok); if (ok) shown++;
+            });
+            cnt.textContent = shown + ' / ' + rowsL.length + ' aset';
+            all.checked = false;
+        };
+        [q, ft, fl].forEach(function (el) { el.addEventListener('input', filter); el.addEventListener('change', filter); });
+        q.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });   // Enter tidak menyimpan form
+        all.addEventListener('change', function () { rowsL.forEach(function (r) { if (!r.classList.contains('hidden')) r.querySelector('.lk-pick').checked = all.checked; }); sync(); });
+        rowsL.forEach(function (r) { r.querySelector('.lk-pick').addEventListener('change', sync); });
+        document.getElementById('lkClear').onclick = function () { rowsL.forEach(function (r) { r.querySelector('.lk-pick').checked = false; }); all.checked = false; sync(); };
+        var send = function (to) {
+            var ids = picked().map(function (r) { return r.querySelector('.lk-pick').value; }); if (!ids.length) return;
+            var f = document.getElementById('lkBulkForm'); document.getElementById('lkBulkTo').value = to;
+            [].forEach.call(f.querySelectorAll('input[name="ids[]"]'), function (x) { x.remove(); });
+            ids.forEach(function (id) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids[]'; i.value = id; f.appendChild(i); });
+            f.submit();
+        };
+        document.getElementById('lkApply').onclick = function () { var sel = document.getElementById('lkTo'); if (confirm('Hubungkan aset yang dicentang ke ' + sel.options[sel.selectedIndex].text + '?')) send(sel.value); };
+        document.getElementById('lkUnlink').onclick = function () { if (confirm('Lepas koneksi aset yang dicentang?')) send(0); };
+        // Checkbox centang tidak dihitung sebagai "perubahan belum disimpan".
+        filter(); setH(); window.addEventListener('resize', setH);
+    })();
+    (function () {
+        var f = document.querySelector('input[name="action"][value="links_save"]'), dirty = document.getElementById('linksDirty');
+        if (!f || !dirty) return;
+        var isEdit = function (e) { var t = e.target; return t && (t.name || '').match(/^(parent|port|own_port)\[/); };
+        f.form.addEventListener('input', function (e) { if (isEdit(e)) { dirty.classList.remove('hidden'); document.documentElement.style.setProperty('--lsb-h', document.getElementById('linksBar').offsetHeight + 'px'); } });
+        f.form.addEventListener('change', function (e) { if (isEdit(e)) dirty.classList.remove('hidden'); });
+    })();
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+    function badge(s) { var c = {ok: 'bg-green-100 text-green-700', warn: 'bg-amber-100 text-amber-700', err: 'bg-red-100 text-red-700', na: 'bg-slate-100 text-slate-600'}[s || 'na'];
+        return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ' + c + '"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>' + esc(T[s || 'na']) + '</span>'; }
+    function hm(d) { if (!d) return '-'; var x = new Date(String(d).replace(' ', 'T')); return ('0' + x.getHours()).slice(-2) + ':' + ('0' + x.getMinutes()).slice(-2); }
+    function post(data) {
+        var fd = new FormData(); fd.append('csrf_token', CSRF);
+        Object.keys(data).forEach(function (k) { [].concat(data[k]).forEach(function (v) { fd.append(Array.isArray(data[k]) ? k + '[]' : k, v); }); });
+        return cfg.post(fd).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    }
+    function toast(msg, bad) { var box = document.getElementById('netToast'); if (!box) return; var d = document.createElement('div');
+        d.className = 'bg-white border-l-4 ' + (bad ? 'border-red-500' : 'border-green-500') + ' shadow-lg rounded-lg px-4 py-3 text-sm text-slate-700'; d.textContent = msg; box.prepend(d); setTimeout(function () { d.remove(); }, 7000); }
+    function descendants(id) { var out = [], st = [id]; while (st.length) { var c = st.pop(); ASSETS.forEach(function (a) { if (a.parent === c) { out.push(a); st.push(a.id); } }); } return out; }
+    function stateOf(a) { if (a.ip) return a.state || 'na';
+        var kids = descendants(a.id).filter(function (k) { return k.ip && k.state; });
+        return kids.length >= 2 && kids.every(function (k) { return k.state === 'err'; }) ? 'err' : 'na'; }
+
+    /* ---------- Cek jaringan ---------- */
+    var rows = document.getElementById('netRows');
+    function shown() {
+        var ft = val('fType'), fl = val('fLoc'), fs = val('fState'), q = val('fQ').toLowerCase();
+        return ASSETS.filter(function (a) { return a.ip && (!ft || a.type === ft) && (!fl || a.loc === fl) && (!fs || (a.state || 'na') === fs) && (!q || (a.name + ' ' + a.number + ' ' + a.ip).toLowerCase().indexOf(q) >= 0); });
+    }
+    function val(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+    function renderRows() {
+        if (!rows) return;
+        var order = {err: 0, warn: 1, ok: 2, na: 3};
+        var list = shown().sort(function (x, y) { return order[x.state || 'na'] - order[y.state || 'na'] || x.name.localeCompare(y.name); });
+        rows.innerHTML = list.map(function (a) { var p = byId[a.parent], s = a.state || 'na';
+            return '<tr class="border-t ' + (s === 'err' ? 'bg-red-50/60' : s === 'warn' ? 'bg-amber-50/60' : '') + '"><td class="px-3 py-2"><input type="checkbox" class="pick w-4 h-4" value="' + a.id + '"></td>'
+                + '<td class="px-3 py-2"><div class="font-medium text-slate-800">' + esc(a.name) + '</div><div class="text-xs text-slate-500">' + esc(a.number) + '</div></td>'
+                + '<td class="px-3 py-2">' + esc(a.type) + '</td><td class="px-3 py-2">' + esc(a.loc) + '</td><td class="px-3 py-2 font-mono text-xs">' + esc(a.ip) + '</td>'
+                + '<td class="px-3 py-2 text-xs">' + (p ? esc(p.name) + (plabel(a.port, a.own_port) ? ' <span class="text-slate-400">' + esc(plabel(a.port, a.own_port)) + '</span>' : '') : '<span class="text-slate-400">-</span>') + '</td>'
+                + '<td class="px-3 py-2">' + badge(s) + (a.detail && s !== 'ok' ? '<div class="text-xs text-slate-500 mt-0.5">' + esc(a.detail) + '</div>' : '') + '</td>'
+                + '<td class="px-3 py-2 text-right tabular-nums ' + (a.ms >= 100 ? 'text-amber-600 font-semibold' : '') + '">' + (a.ms == null ? '-' : a.ms + ' ms') + (a.method && a.method.indexOf('tcp ') === 0 ? '<div class="text-[10px] text-slate-400">' + esc(a.method) + '</div>' : '') + '</td>'
+                + '<td class="px-3 py-2 text-right tabular-nums ' + (s === 'err' ? 'text-red-600 font-semibold' : a.loss >= 5 ? 'text-amber-600 font-semibold' : '') + '">' + (a.loss == null ? '-' : a.loss + '%') + '</td>'
+                + '<td class="px-3 py-2 text-xs text-slate-500 tabular-nums">' + hm(a.checked_at) + '</td>'
+                + '<td class="px-3 py-2"><button type="button" class="recheck text-xs px-2 py-1 rounded-lg border border-slate-300 hover:bg-slate-50 text-blue-600 whitespace-nowrap" data-id="' + a.id + '">' + esc(T.recheck) + '</button></td></tr>';
+        }).join('') || '<tr><td colspan="11" class="px-3 py-6 text-center text-slate-500">' + esc(T.none) + '</td></tr>';
+        [].forEach.call(rows.querySelectorAll('.recheck'), function (b) { b.onclick = function () { b.disabled = true; b.textContent = T.checking; run([+b.dataset.id]); }; });
+        var all = document.getElementById('chkAll'); if (all) all.checked = false;
+    }
+    var busy = false;
+    function run(ids) {
+        if (busy || !ids.length) return; busy = true;
+        var btn = document.getElementById('btnCheck'), prog = document.getElementById('prog'); if (btn) btn.disabled = true; if (prog) prog.classList.remove('hidden');
+        var i = 0, CH = 8, okAll = true;
+        (function next() {
+            if (i >= ids.length) {
+                post({action: 'check_done', ids: ids}).then(function () { cfg.reload(); }).catch(function () { cfg.reload(); });
+                return;
+            }
+            var part = ids.slice(i, i + CH);
+            document.getElementById('progTxt').textContent = T.checking + ' ' + Math.min(ids.length, i + part.length) + ' ' + T.of + ' ' + ids.length + ' ' + T.assets;
+            post({action: 'check', ids: part}).then(function (d) {
+                (d.results || []).forEach(function (r) { var a = byId[r.id]; if (a) { a.state = r.state; a.ms = r.ms; a.loss = r.loss; a.method = r.method; a.detail = r.detail; a.checked_at = r.checked_at; } });
+            }).catch(function (e) { okAll = false; toast(T.failed + ': ' + e.message, true); }).then(function () {
+                i += part.length; document.getElementById('progBar').style.width = (i / ids.length * 100) + '%'; renderRows(); next();
+            });
+        })();
+    }
+    if (rows) {
+        ['fType', 'fLoc', 'fState'].forEach(function (id) { document.getElementById(id).onchange = renderRows; });
+        document.getElementById('fQ').oninput = renderRows;
+        document.getElementById('chkAll').onchange = function (e) { [].forEach.call(rows.querySelectorAll('.pick'), function (c) { c.checked = e.target.checked; }); };
+        document.getElementById('btnCheck').onclick = function () {
+            var picked = [].map.call(rows.querySelectorAll('.pick:checked'), function (c) { return +c.value; });
+            run(picked.length ? picked : shown().map(function (a) { return a.id; }));
+        };
+        var KEY = 'netAutoPage', ap = document.getElementById('autoPage'), timer = null;
+        function setAuto(on) { clearInterval(timer); timer = null; if (on) timer = setInterval(function () { if (!document.hidden) run(shown().map(function (a) { return a.id; })); }, 60000); }
+        try { ap.checked = sessionStorage.getItem(KEY) === '1'; } catch (e) {}
+        ap.onchange = function () { try { sessionStorage.setItem(KEY, ap.checked ? '1' : '0'); } catch (e) {} setAuto(ap.checked); };
+        setAuto(ap.checked);
+        renderRows();
+    }
+
+    /* ---------- Topologi ---------- */
+    var topo = document.getElementById('topo');
+    // ---- Geser bebas (seperti Visio): posisi X/Y tiap kotak disimpan; tanpa posisi = susunan otomatis ----
+    var XY = {}, XY0 = {}, EDIT = false, DIRTY = false, NW_ = 190, POSG = {}, LISTG = [];
+    Object.keys(TOPO_POS).forEach(function (k) { XY[k] = {x: TOPO_POS[k][0], y: TOPO_POS[k][1]}; XY0[k] = {x: TOPO_POS[k][0], y: TOPO_POS[k][1]}; });
+    function setDirty(on) { DIRTY = on; document.getElementById('tArrDirty').classList.toggle('hidden', !on); }
+    // Tahan klik & geser kotak ke mana saja (snap 10 px). Shift = ikut memindahkan seluruh cabang di bawahnya.
+    function startDrag(e, id) {
+        if (e.button > 0) return;
+        e.preventDefault();
+        var svg = topo.querySelector('svg'), r0 = svg.getBoundingClientRect(), sc = svg.viewBox.baseVal.width / r0.width;
+        // Area yang di-scroll: <main> aplikasi (bila bisa di-scroll), selain itu jendela browser.
+        var SC = topo.closest('main'); if (SC && SC.scrollHeight <= SC.clientHeight + 2 && getComputedStyle(SC).overflowY === 'visible') SC = null;
+        var gy = function () { return SC ? SC.scrollTop : window.scrollY; }, sby = function (d) { if (SC) SC.scrollTop += d; else window.scrollBy(0, d); };
+        var sx = e.clientX, sy = e.clientY, sl = topo.scrollLeft, wy = gy(), moved = false, raf = 0, last = e;
+        var ids = [id];
+        if (e.shiftKey && id > 0) descendants(id).forEach(function (k) { if (POSG[k.id]) ids.push(k.id); });
+        var start = {}; ids.forEach(function (k) { start[k] = {x: POSG[k].x, y: POSG[k].y}; });
+        function apply() {
+            raf = 0;
+            var dx = (last.clientX - sx + topo.scrollLeft - sl) * sc, dy = (last.clientY - sy + gy() - wy) * sc;
+            if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+            moved = true;
+            var minX = Math.min.apply(null, ids.map(function (k) { return start[k].x; })), minY = Math.min.apply(null, ids.map(function (k) { return start[k].y; }));
+            dx = Math.max(dx, 4 - minX); dy = Math.max(dy, 4 - minY);   // tidak keluar dari kiri / atas
+            ids.forEach(function (k) { XY[k] = {x: Math.round((start[k].x + dx) / 10) * 10, y: Math.round((start[k].y + dy) / 10) * 10}; });
+            renderTopo();
+            var n = topo.querySelector('.node[data-id="' + id + '"]'); if (n) n.classList.add('dragging');
+        }
+        function mv(ev) { last = ev; if (!raf) raf = requestAnimationFrame(apply); }
+        var tick = setInterval(function () {   // gulir otomatis di tepi layar / tepi diagram
+            var tr = topo.getBoundingClientRect(), s = 0;
+            var top = SC ? SC.getBoundingClientRect().top : 0, bot = SC ? SC.getBoundingClientRect().bottom : window.innerHeight;
+            if (last.clientY < top + 60) { sby(-16); s = 1; } else if (last.clientY > bot - 40) { sby(16); s = 1; }
+            if (last.clientX > tr.right - 40) { topo.scrollLeft += 16; s = 1; } else if (last.clientX < tr.left + 40) { topo.scrollLeft -= 16; s = 1; }
+            if (s && moved && !raf) raf = requestAnimationFrame(apply);
+        }, 30);
+        function up() {
+            clearInterval(tick); window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+            if (raf) { cancelAnimationFrame(raf); apply(); }
+            if (moved) {
+                // Simpan juga posisi semua kotak lain yang tampil, supaya susunan tidak bergeser bila data berubah.
+                LISTG.forEach(function (k) { if (!XY[k] && POSG[k]) XY[k] = {x: POSG[k].x, y: POSG[k].y}; });
+                setDirty(true);
+            }
+            renderTopo(); topoSearch(false);
+        }
+        window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+    }
+    function setArrange(on) {
+        EDIT = on; document.getElementById('tArrBar').classList.toggle('hidden', !on);
+        document.getElementById('tArrange').classList.toggle('bg-amber-100', on);
+        renderTopo(); topoSearch(false);
+    }
+    function renderTopo() {
+        // Kotak per lokasi aktif: anak yang lokasinya sama dengan induknya didahulukan, lalu dikelompokkan per lokasi.
+        function GRP_ON() { return !!(document.getElementById('tGroup') || {}).checked; }
+        // Lokasi dibandingkan tanpa beda huruf besar/kecil & spasi ("Ruang Server" = "RUANG SERVER").
+        // Label kotak memakai penulisan yang paling banyak dipakai.
+        function LK(s) { return (s || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+        var LCNT = {}, LNAME = {};
+        ASSETS.forEach(function (a) { var k = LK(a.loc), t = (a.loc || '').trim().replace(/\s+/g, ' '); if (!k) return; LCNT[k] = LCNT[k] || {}; LCNT[k][t] = (LCNT[k][t] || 0) + 1; });
+        Object.keys(LCNT).forEach(function (k) { LNAME[k] = Object.keys(LCNT[k]).sort(function (x, y) { return LCNT[k][y] - LCNT[k][x] || x.localeCompare(y); })[0]; });
+        // Cabang yang seluruh isinya 1 lokasi didahulukan, supaya aset satu lokasi tidak terpotong cabang lokasi lain.
+        function pure(k) { var L = LK(k.loc); return descendants(k.id).every(function (d) { return LK(d.loc) === L; }) ? 0 : 1; }
+        var fl = val('tLoc'), list = [], VIRT_NET = {id: -1, name: 'Internet / Router ISP', type: '', ip: '', virtual: true}, VIRT_NL = {id: -2, name: T.notLinked, type: '', ip: '', virtual: true};
+        function keep(a) { if (!fl) return true; if (a.loc === fl) return true; return descendants(a.id).some(function (k) { return k.loc === fl; }); }
+        var roots = ASSETS.filter(function (a) { return !a.parent; });
+        var netRoots = roots.filter(function (a) { return a.is_net || descendants(a.id).length; }), loose = roots.filter(function (a) { return netRoots.indexOf(a) < 0; });
+        function walk(a, d, pid) { if (!keep(a)) return; list.push({a: a, d: d, pid: pid}); ASSETS.filter(function (k) { return k.parent === a.id; }).sort(function (x, y) { return (GRP_ON() ? (LK(x.loc) === LK(a.loc) ? 0 : 1) - (LK(y.loc) === LK(a.loc) ? 0 : 1) || LK(x.loc).localeCompare(LK(y.loc)) || pure(x) - pure(y) : 0) || (y.is_net - x.is_net) || x.name.localeCompare(y.name); }).forEach(function (k) { walk(k, d + 1, a.id); }); }
+        // Urutan perangkat paling atas sama dengan versi cetak; dengan kotak per lokasi, yang lokasinya sama dibuat
+        // berdampingan (urutan lokasi mengikuti kemunculan pertama) dan yang tanpa cabang lokasi lain didahulukan.
+        netRoots.sort(function (x, y) { return (y.is_net - x.is_net) || x.name.localeCompare(y.name); });
+        if (GRP_ON()) {
+            var rk = [], rg = {};
+            netRoots.forEach(function (a, i) { var k = LK(a.loc); if (!rg[k]) { rg[k] = []; rk.push(k); } rg[k].push([a, i]); });
+            netRoots = [];
+            rk.forEach(function (k) { rg[k].sort(function (x, y) { return (k ? pure(x[0]) - pure(y[0]) : 0) || x[1] - y[1]; }).forEach(function (x) { netRoots.push(x[0]); }); });
+        }
+        if (netRoots.length) { list.push({a: VIRT_NET, d: 0}); netRoots.forEach(function (a) { walk(a, 1, -1); }); }
+        var looseKept = loose.filter(keep);
+        if (GRP_ON()) looseKept.sort(function (x, y) { return LK(x.loc).localeCompare(LK(y.loc)) || x.name.localeCompare(y.name); });
+        // Kotak per lokasi: aset yang belum dihubungkan ikut ditaruh di kotak lokasinya (di bawah perangkat pertama
+        // berlokasi sama), digambar bergaris putus-putus tanpa garis koneksi. Sisanya tetap di "Belum dihubungkan".
+        if (GRP_ON() && looseKept.length) {
+            var anchor = {}, ins = {};
+            // Utamakan switch/router berlokasi sama yang punya cabang, lalu perangkat jaringan, lalu baris pertama.
+            var rank = {};
+            list.forEach(function (r, i) {
+                var k = r.a.virtual ? '' : LK(r.a.loc); if (!k) return;
+                var sc = r.a.is_net ? ((list[i + 1] && list[i + 1].d > r.d) ? 2 : 1) : 0;
+                if (anchor[k] === undefined || sc > rank[k]) { anchor[k] = i; rank[k] = sc; }
+            });
+            looseKept = looseKept.filter(function (a) { var i = anchor[LK(a.loc)]; if (i === undefined) return true; (ins[i] = ins[i] || []).push(a); return false; });
+            Object.keys(ins).map(Number).sort(function (x, y) { return y - x; }).forEach(function (i) {
+                var d = list[i].d + 1;
+                list.splice.apply(list, [i + 1, 0].concat(ins[i].map(function (a) { return {a: a, d: d, float: true, pid: null}; })));
+            });
+        }
+        if (looseKept.length) { list.push({a: VIRT_NL, d: 0}); looseKept.forEach(function (a) { list.push({a: a, d: 1, pid: -2}); }); }
+        if (!list.length) { topo.innerHTML = '<p class="p-6 text-sm text-slate-500">' + esc(T.none) + '</p>'; return; }
+        var NW = 190, NH = 40, GX = 150, GY = 50, P = 14, maxD = Math.max.apply(null, list.map(function (r) { return r.d; }));
+        // Router/switch/hub/AP yang punya Brand/Type: kotak lebih tinggi (baris ke-3 = brand type).
+        var GAP = GY - NH, yy = P, pos = {};
+        // Semua IP terdaftar tampil 1 per baris (IP utama paling atas); kotak bertambah tinggi 14px per IP tambahan.
+        function ipLines(a) {
+            if (a.virtual) return [];
+            var l = (a.ips || []).slice();
+            if (!l.length) return a.ip ? [a.ip] : [];
+            var k = -1; l.forEach(function (x, i) { if (k < 0 && x.split('/')[0] === a.ip) k = i; });
+            if (k > 0) l.unshift(l.splice(k, 1)[0]);
+            return l;
+        }
+        // Kotak lokasi: baris berurutan dengan lokasi sama dibungkus 1 kotak berwarna + label lokasi di atasnya.
+        var GRP = !!(document.getElementById('tGroup') || {}).checked, LBL = 24, prevLoc = null;
+        function locOf(a) { return a.virtual ? '' : LK(a.loc); }
+        list.forEach(function (r) { var L = locOf(r.a); if (GRP && L && L !== prevLoc) yy += LBL; prevLoc = L; var nIp = Math.max(1, ipLines(r.a).length), h = r.a.virtual ? NH : NH + (nIp - 1) * 14 + ((r.a.is_net && (r.a.brand || '').trim()) ? 14 : 0); pos[r.a.id] = {x: P + r.d * GX, y: yy, h: h, d: r.d, ips: ipLines(r.a)}; yy += h + GAP; });
+        var W = P * 2 + maxD * GX + NW + (EXTRA.length ? 70 + EXTRA.length * 14 : 0), H = yy - GAP + P;
+        // Warna kabel: tiap switch / router yang punya perangkat di bawahnya mendapat 1 warna; semua garis koneksi
+        // utama dari perangkat itu memakai warnanya, dan kotaknya diberi strip warna yang sama. Merah tetap = putus.
+        var CAB_ON = !!(document.getElementById('tCable') || {}).checked, CAB = {}, nCab = 0;
+        var CAB_PAL = ['#0d9488', '#7c3aed', '#ea580c', '#92400e', '#65a30d', '#db2777', '#ca8a04', '#475569', '#059669', '#9333ea', '#c2410c', '#0f766e', '#a16207', '#be185d', '#15803d', '#6d28d9'];
+        if (CAB_ON) list.forEach(function (r) { if (r.pid > 0 && !r.float && CAB[r.pid] === undefined) CAB[r.pid] = CAB_PAL[nCab++ % CAB_PAL.length]; });
+        function cab(r) { return (CAB_ON && r.pid > 0 && CAB[r.pid]) || '#94a3b8'; }
+        // Geser bebas: kotak yang punya posisi tersimpan dipindah ke posisinya; garis digambar ulang (siku).
+        var FREE = EDIT || Object.keys(XY).length > 0;
+        if (FREE) {
+            list.forEach(function (r) { var q = XY[r.a.id]; if (q) { pos[r.a.id].x = q.x; pos[r.a.id].y = q.y; } });
+            list.forEach(function (r) { var p = pos[r.a.id]; W = Math.max(W, p.x + NW + 60); H = Math.max(H, p.y + p.h + 40); });
+            if (EDIT) { W += 300; H += 200; }   // ruang kosong untuk menggeser
+        }
+        // Garis siku antar 2 kotak (gaya Visio): atas-bawah bila berjauhan vertikal, kiri-kanan bila sejajar.
+        function elbow(A, B, off, tree) {
+            off = off || 0;
+            var acx = A.x + NW / 2, bcx = B.x + NW / 2, bmy = B.y + Math.min(B.h, NH) / 2 + off;
+            // Induk -> anak di kanan-bawah / kiri-bawah: garis "L" seperti tampilan pohon (turun dari tepi induk, belok ke anak).
+            if (tree && B.y >= A.y + A.h - 4 && (B.x >= A.x + 40 || B.x + NW <= A.x + NW - 40)) {
+                var rgt = B.x >= A.x + 40, tx = (rgt ? A.x + 18 : A.x + NW - 18) + off, ex = rgt ? B.x : B.x + NW;
+                return {d: 'M' + tx + ',' + (A.y + A.h) + ' V' + bmy + ' H' + ex, lx: rgt ? tx + 6 : ex + 6, ly: bmy - 4, ax: tx + 4, ay: A.y + A.h + 12};
+            }
+            if (B.y >= A.y + A.h + 16 || A.y >= B.y + B.h + 16) {
+                var down = B.y > A.y, y1 = down ? A.y + A.h : A.y, y2 = down ? B.y : B.y + B.h, my = Math.round((y1 + y2) / 2) + off;
+                var ax = acx + off, bx = bcx + off;
+                return {d: 'M' + ax + ',' + y1 + ' V' + my + ' H' + bx + ' V' + y2, lx: bx + 4, ly: down ? y2 - 4 : y2 + 12, ax: ax + 4, ay: down ? y1 + 12 : y1 - 4};
+            }
+            var right = B.x > A.x, x1 = right ? A.x + NW : A.x, x2 = right ? B.x : B.x + NW, mx = Math.round((x1 + x2) / 2) + off;
+            var ay = A.y + Math.min(A.h, 40) / 2 + off, by = B.y + Math.min(B.h, 40) / 2 + off;
+            if (Math.abs(x2 - x1) < 20) { mx = Math.max(A.x, B.x) + NW + 30 + off; x1 = A.x + NW; x2 = B.x + NW; }   // bertumpuk: lewat sisi kanan
+            return {d: 'M' + x1 + ',' + ay + ' H' + mx + ' V' + by + ' H' + x2, lx: x2 + (x2 > mx ? -60 : 4), ly: by - 4, ax: x1 + (x1 < mx ? 4 : -60), ay: ay - 4};
+        }
+        var COL = {ok: ['#ecfdf3', '#15803d'], warn: ['#fffbeb', '#b45309'], err: ['#fef2f2', '#b91c1c'], na: ['#ffffff', '#cbd5e1']};
+        var lines = '', nodes = '', boxes = '';
+        if (GRP) {
+            var PAL = [['#eff6ff', '#3b82f6', '#1d4ed8'], ['#f0fdf4', '#22c55e', '#15803d'], ['#fff7ed', '#f97316', '#c2410c'], ['#faf5ff', '#a855f7', '#7e22ce'], ['#ecfeff', '#06b6d4', '#0e7490'], ['#fdf2f8', '#ec4899', '#be185d'], ['#fefce8', '#eab308', '#a16207']];
+            var locIdx = {}, nLoc = 0, runs = [], cur = null;
+            if (FREE) {   // satu kotak per lokasi = batas luar semua perangkat di lokasi itu
+                var byL = {};
+                list.forEach(function (r) {
+                    var L = locOf(r.a), p = pos[r.a.id]; if (!L) return;
+                    if (locIdx[L] === undefined) locIdx[L] = nLoc++;
+                    var g = byL[L]; if (!g) { g = byL[L] = {loc: L, x1: p.x, x2: p.x + NW, y1: p.y, y2: p.y + p.h, n: 0}; runs.push(g); }
+                    g.x1 = Math.min(g.x1, p.x); g.x2 = Math.max(g.x2, p.x + NW); g.y1 = Math.min(g.y1, p.y); g.y2 = Math.max(g.y2, p.y + p.h); g.n++;
+                });
+            } else list.forEach(function (r) {
+                var L = locOf(r.a), p = pos[r.a.id];
+                if (!L) { cur = null; return; }
+                if (cur && cur.loc === L) { cur.x1 = Math.min(cur.x1, p.x); cur.x2 = Math.max(cur.x2, p.x + NW); cur.y2 = p.y + p.h; cur.n++; }
+                else { if (locIdx[L] === undefined) locIdx[L] = nLoc++; cur = {loc: L, x1: p.x, x2: p.x + NW, y1: p.y, y2: p.y + p.h, n: 1}; runs.push(cur); }
+            });
+            runs.forEach(function (g) {
+                var c = PAL[locIdx[g.loc] % PAL.length], x = g.x1 - 8, y = g.y1 - LBL + 4, w = g.x2 - g.x1 + 16, hh = g.y2 - y + 6;
+                var lbl = (LNAME[g.loc] || g.loc) + ' · ' + g.n + ' ' + T.dev, lw = Math.min(w - 4, lbl.length * 7 + 16);
+                boxes += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + hh + '" rx="10" fill="' + c[0] + '" fill-opacity=".75" stroke="' + c[1] + '" stroke-width="1.2" stroke-dasharray="6 3"/>'
+                    + '<rect x="' + (x + 8) + '" y="' + (y - 8) + '" width="' + lw + '" height="17" rx="8.5" fill="' + c[1] + '"/>'
+                    + '<text x="' + (x + 16) + '" y="' + (y + 4) + '" font-size="10.5" font-weight="600" fill="#fff">' + esc(lbl) + '</text>';
+            });
+        }
+        list.forEach(function (r, i) {
+            var a = r.a, p = pos[a.id], st = a.virtual ? 'na' : stateOf(a), pp = null;
+            if (FREE) {
+                pp = (r.pid !== null && r.pid !== undefined) ? pos[r.pid] : null;
+                if (pp) { var el = elbow(pp, p, 0, true);
+                    lines += '<path d="' + el.d + '" fill="none" stroke="' + (st === 'err' ? '#b91c1c' : cab(r)) + '" stroke-width="' + (st === 'err' ? 2 : (CAB_ON && r.pid > 0 ? 1.8 : 1.2)) + '"' + (st === 'err' ? ' stroke-dasharray="5 4"' : '') + '/>';
+                    if (plabel(a.port, a.own_port)) lines += '<text x="' + el.lx + '" y="' + el.ly + '" font-size="10" fill="' + (CAB_ON && r.pid > 0 ? cab(r) : '#64748b') + '" font-family="monospace">' + esc(plabel(a.port, a.own_port)) + '</text>'; }
+                pp = null;
+            } else if (r.d > 0 && !r.float) { for (var j = i - 1; j >= 0; j--) if (list[j].d === r.d - 1) { pp = pos[list[j].a.id]; break; } }
+            if (pp) { var x1 = pp.x + 18, y1 = pp.y + pp.h, y2 = p.y + NH / 2; lines += '<path d="M' + x1 + ',' + y1 + ' V' + y2 + ' H' + p.x + '" fill="none" stroke="' + (st === 'err' ? '#b91c1c' : cab(r)) + '" stroke-width="' + (st === 'err' ? 2 : (CAB_ON && r.pid > 0 ? 1.8 : 1.2)) + '"' + (st === 'err' ? ' stroke-dasharray="5 4"' : '') + '/>';
+                if (plabel(a.port, a.own_port)) lines += '<text x="' + (x1 + 6) + '" y="' + (y2 - 4) + '" font-size="10" fill="' + (CAB_ON && r.pid > 0 ? cab(r) : '#64748b') + '" font-family="monospace">' + esc(plabel(a.port, a.own_port)) + '</text>'; }
+            var c = COL[st], subs = a.virtual ? [] : (p.ips.length ? p.ips : [T.noIp + ' · ' + (st === 'err' ? T.suspect : T.inferred)]), sub = subs.length, nm = a.name.length > 22 ? a.name.slice(0, 21) + '…' : a.name;
+            var bt = (!a.virtual && a.is_net) ? (a.brand || '').trim() : ''; if (bt.length > 30) bt = bt.slice(0, 29) + '…';
+            nodes += '<g class="node" data-id="' + a.id + '" tabindex="0" role="button" style="cursor:' + (a.virtual ? 'default' : 'pointer') + '"><rect x="' + p.x + '" y="' + p.y + '" width="' + NW + '" height="' + p.h + '" rx="8" fill="' + c[0] + '" stroke="' + c[1] + '" stroke-width="1.5"' + (a.virtual || r.float ? ' stroke-dasharray="4 3"' : '') + '/>'
+                + (CAB[a.id] ? '<rect x="' + (p.x + 3) + '" y="' + (p.y + 6) + '" width="4" height="' + (p.h - 12) + '" rx="2" fill="' + CAB[a.id] + '"/>' : '')
+                + '<text x="' + (p.x + 10) + '" y="' + (p.y + (sub ? 17 : 25)) + '" font-size="12" font-weight="600" fill="#1e293b">' + esc(nm) + '</text>'
+                + subs.map(function (t, n) { return '<text x="' + (p.x + 10) + '" y="' + (p.y + 32 + n * 14) + '" font-size="10.5" fill="#64748b" font-family="monospace">' + esc(t.length > 28 ? t.slice(0, 27) + '…' : t) + '</text>'; }).join('')
+                + (bt ? '<text x="' + (p.x + 10) + '" y="' + (p.y + 33 + Math.max(1, subs.length) * 14) + '" font-size="10.5" fill="#4338ca" font-weight="500">' + esc(bt) + '</text>' : '') + '</g>';
+        });
+        // Koneksi tambahan: lengkung putus-putus biru di sisi kanan kedua kotak.
+        var pairSeen = {};
+        EXTRA.forEach(function (l, k) {
+            var A = pos[l.a], B = pos[l.b]; if (!A || !B) return;
+            var pk = Math.min(l.a, l.b) + '-' + Math.max(l.a, l.b), pi = pairSeen[pk] = (pairSeen[pk] === undefined ? 0 : pairSeen[pk] + 1);   // kabel ke-2, ke-3 antar perangkat yang sama digeser
+            if (FREE) {
+                // Lengkung putus-putus seperti tampilan awal: bila bertumpuk, melengkung di sisi kanan;
+                // bila berjauhan ke samping, lengkung S dari sisi yang saling berhadapan.
+                var o2 = pi * 10 - (pi ? 4 : 0), ay2 = A.y + Math.min(A.h, NH) / 2 + o2, by2 = B.y + Math.min(B.h, NH) / 2 + o2, x1, x2, d;
+                if (B.x >= A.x + NW + 20 || A.x >= B.x + NW + 20) {
+                    var r2 = B.x > A.x; x1 = r2 ? A.x + NW : A.x; x2 = r2 ? B.x : B.x + NW;
+                    var mx2 = (x1 + x2) / 2;
+                    d = 'M' + x1 + ',' + ay2 + ' C' + mx2 + ',' + ay2 + ' ' + mx2 + ',' + by2 + ' ' + x2 + ',' + by2;
+                } else {
+                    x1 = A.x + NW; x2 = B.x + NW;
+                    var X2 = Math.max(A.x, B.x) + NW + 40 + (k % 12) * 14;
+                    d = 'M' + x1 + ',' + ay2 + ' C' + X2 + ',' + ay2 + ' ' + X2 + ',' + by2 + ' ' + x2 + ',' + by2;
+                }
+                lines += '<path d="' + d + '" fill="none" stroke="#2563eb" stroke-width="1.6" stroke-dasharray="6 4"/>';
+                // label port di luar kotak, di sisi tempat garis keluar (kiri kotak = ditulis ke kiri)
+                var ax2 = x1 === A.x ? x1 - 4 - String(l.port_a || '').length * 6 : x1 + 4, bx2 = x2 === B.x ? x2 - 4 - String(l.port_b || '').length * 6 : x2 + 4;
+                if (l.port_a) lines += '<text x="' + ax2 + '" y="' + (ay2 - 4) + '" font-size="10" fill="#2563eb" font-family="monospace">' + esc(l.port_a) + '</text>';
+                if (l.port_b) lines += '<text x="' + bx2 + '" y="' + (by2 - 4) + '" font-size="10" fill="#2563eb" font-family="monospace">' + esc(l.port_b) + '</text>';
+                return;
+            }
+            var off = pi * 10 - (pi ? 4 : 0), ay = A.y + A.h / 2 + off, by = B.y + B.h / 2 + off, X = Math.max(A.x, B.x) + NW + 40 + k * 14;
+            lines += '<path d="M' + (A.x + NW) + ',' + ay + ' C' + X + ',' + ay + ' ' + X + ',' + by + ' ' + (B.x + NW) + ',' + by + '" fill="none" stroke="#2563eb" stroke-width="1.6" stroke-dasharray="6 4"/>';
+            if (l.port_a) lines += '<text x="' + (A.x + NW + 4) + '" y="' + (ay - 4) + '" font-size="10" fill="#2563eb" font-family="monospace">' + esc(l.port_a) + '</text>';
+            if (l.port_b) lines += '<text x="' + (B.x + NW + 4) + '" y="' + (by - 4) + '" font-size="10" fill="#2563eb" font-family="monospace">' + esc(l.port_b) + '</text>';
+        });
+        POSG = pos; LISTG = list.map(function (r) { return r.a.id; }); topo.classList.toggle('arr', EDIT);
+        topo.innerHTML = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img">' + boxes + lines + nodes + '</svg>';
+        [].forEach.call(topo.querySelectorAll('.node'), function (n) { if (EDIT) { n.style.cursor = 'grab'; n.onpointerdown = function (e) { startDrag(e, +n.dataset.id); }; } var a = byId[n.dataset.id]; if (!a) return; var go = function () { info(a); }; n.onclick = function () { if (!EDIT) go(); }; n.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }; });
+    }
+    function info(a) {
+        var kids = descendants(a.id), p = byId[a.parent], st = stateOf(a);
+        document.getElementById('nodeInfo').innerHTML = '<div class="flex flex-wrap items-center gap-2 mb-2"><b class="text-slate-800">' + esc(a.name) + '</b>' + badge(st) + '</div>'
+            + '<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1"><dt class="text-slate-500">No. aset</dt><dd>' + esc(a.number) + '</dd><dt class="text-slate-500">Jenis</dt><dd>' + esc(a.type) + '</dd>' + (a.is_net && (a.brand || '').trim() ? '<dt class="text-slate-500">Brand / Type</dt><dd>' + esc(a.brand) + '</dd>' : '') + '<dt class="text-slate-500">Lokasi</dt><dd>' + esc(a.loc || '-') + '</dd><dt class="text-slate-500">IP</dt><dd class="font-mono text-xs">' + esc(a.ip || '-') + (a.ips && a.ips.length > 1 ? '<div class="text-slate-500">' + esc(a.ips.join(', ')) + '</div>' : '') + '</dd>'
+            + '<dt class="text-slate-500">' + esc(T.connected) + '</dt><dd>' + (p ? esc(p.name) + (plabel(a.port, a.own_port) ? ' (' + esc(plabel(a.port, a.own_port)) + ')' : '') : '-') + '</dd>'
+            + (a.ip ? '<dt class="text-slate-500">' + esc(T.result) + '</dt><dd>' + (a.state ? (a.state === 'err' ? esc(a.detail || T.err) : a.ms + ' ms, ' + esc(T.loss) + ' ' + a.loss + '%') + ' · ' + hm(a.checked_at) : '-') + '</dd>' : '')
+            + (function () { var ex = EXTRA.filter(function (l) { return l.a === a.id || l.b === a.id; }).map(function (l) { var o = byId[l.a === a.id ? l.b : l.a]; var mine = l.a === a.id, lb = plabel(mine ? l.port_b : l.port_a, mine ? l.port_a : l.port_b); return o ? esc(o.name) + (lb ? ' <span class="text-slate-400">(' + esc(lb) + ')</span>' : '') : ''; }).filter(Boolean);
+                return ex.length ? '<dt class="text-slate-500">' + esc(T.extra) + '</dt><dd class="text-blue-700">' + ex.join('; ') + '</dd>' : ''; })()
+            + '<dt class="text-slate-500">' + esc(T.below) + '</dt><dd>' + (kids.length ? kids.length + ' (' + kids.filter(function (k) { return k.state === 'err'; }).length + ' ' + esc(T.err.toLowerCase()) + ')' : '-') + '</dd></dl>';
+    }
+    // Cari di topologi: kotak yang cocok diberi bingkai biru tebal, yang lain diredupkan, lalu digulir ke hasil pertama.
+    function topoSearch(scroll) {
+        var q = (val('tQ') || '').toLowerCase().trim(), n = 0, first = null;
+        [].forEach.call(topo.querySelectorAll('g.node'), function (g) {
+            var a = byId[g.dataset.id], r = g.querySelector('rect');
+            if (!r.dataset.st) { r.dataset.st = r.getAttribute('stroke'); r.dataset.sw = r.getAttribute('stroke-width'); }
+            var hit = !!(q && a && (a.name + ' ' + a.number + ' ' + a.ip + ' ' + (a.ips || []).join(' ') + ' ' + a.type + ' ' + a.loc + ' ' + (a.brand || '')).toLowerCase().indexOf(q) >= 0);
+            r.setAttribute('stroke', hit ? '#2563eb' : r.dataset.st); r.setAttribute('stroke-width', hit ? '3.5' : r.dataset.sw);
+            g.style.opacity = q && !hit ? '0.35' : '';
+            if (hit) { n++; if (!first) first = g; }
+        });
+        document.getElementById('tQn').textContent = q ? (n ? n + ' ditemukan' : 'tidak ditemukan') : '';
+        if (first && scroll) { first.scrollIntoView({block: 'center', inline: 'center', behavior: 'smooth'}); info(byId[first.dataset.id]); }
+    }
+    if (topo) {
+        document.getElementById('tLoc').onchange = function () { renderTopo(); topoSearch(false); };
+        document.getElementById('tGroup').onchange = function () { renderTopo(); topoSearch(false); };
+        document.getElementById('tCable').onchange = function () { renderTopo(); topoSearch(false); };
+        document.getElementById('tArrange').onclick = function () { setArrange(!EDIT); };
+        document.getElementById('tArrSave').onclick = function () {
+            if (!DIRTY) { toast(T.orderSaved); return; }
+            var out = {}; Object.keys(XY).forEach(function (k) { out[k] = [XY[k].x, XY[k].y]; });
+            post({action: 'topo_pos', pos: JSON.stringify(out)}).then(function () {
+                XY0 = {}; Object.keys(XY).forEach(function (k) { XY0[k] = {x: XY[k].x, y: XY[k].y}; });
+                setDirty(false); toast(T.orderSaved);
+            }).catch(function (e) { toast(e.message, true); });
+        };
+        document.getElementById('tArrCancel').onclick = function () {
+            if (DIRTY && !confirm(T.orderDiscard)) return;
+            XY = {}; Object.keys(XY0).forEach(function (k) { XY[k] = {x: XY0[k].x, y: XY0[k].y}; });
+            setDirty(false); setArrange(false);
+        };
+        document.getElementById('tArrReset').onclick = function () {
+            if (!confirm(T.orderResetQ)) return;
+            post({action: 'topo_pos_reset'}).then(function () {
+                XY = {}; XY0 = {}; setDirty(false);
+                renderTopo(); topoSearch(false); toast(T.orderReset);
+            }).catch(function (e) { toast(e.message, true); });
+        };
+        window.addEventListener('beforeunload', function (e) { if (DIRTY) { e.preventDefault(); e.returnValue = ''; } });
+        var tq = document.getElementById('tQ'), tqT = null;
+        tq.addEventListener('input', function () { clearTimeout(tqT); tqT = setTimeout(function () { topoSearch(true); }, 250); });
+        tq.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); topoSearch(true); } });
+        renderTopo();
+        var topoUrl = function (pdf) { return 'network_topo_print.php?' + new URLSearchParams({loc: val('tLoc'), net: val('pNet'), orient: val('pOrient'), grp: document.getElementById('tGroup').checked ? '1' : '', cable: document.getElementById('tCable').checked ? '1' : ''}).toString() + (pdf ? '&out=pdf' : ''); };
+        document.getElementById('btnTopoPrint').onclick = function () { cfg.printNote(); };
+        document.getElementById('btnTopoPdf').onclick = function () { cfg.printNote(); };
+    }
+
+    /* ---------- Scan ---------- */
+    var sBtn = document.getElementById('btnScan');
+    if (sBtn) sBtn.onclick = function () {
+        var net = val('sNet'), pre = net.split('.').slice(0, 3).join('.') + '.', found = {}, from = 1, CH = 32;
+        sBtn.disabled = true; document.getElementById('sProg').classList.remove('hidden'); document.getElementById('sSum').innerHTML = '';
+        (function next() {
+            if (from > 254) {
+                document.getElementById('sTxt').textContent = T.reading;
+                post({action: 'scan_finish', subnet: net, found: JSON.stringify(found)}).then(showScan).catch(function (e) { toast(T.failed + ': ' + e.message, true); }).then(function () { sBtn.disabled = false; });
+                return;
+            }
+            var to = Math.min(254, from + CH - 1);
+            document.getElementById('sTxt').textContent = T.scanning + ' ' + pre + from + '–' + to;
+            post({action: 'scan_chunk', subnet: net, from: from, to: to}).then(function (d) { if (d.found) Object.keys(d.found).forEach(function (ip) { found[ip] = d.found[ip]; }); })
+                .catch(function (e) { toast(T.failed + ': ' + e.message, true); }).then(function () { document.getElementById('sBar').style.width = (to / 254 * 100) + '%'; from = to + 1; next(); });
+        })();
+    };
+    function showScan(d, old) {
+        if (!d || (!old && !d.ok)) { toast((d && d.error) || T.failed, true); return; }
+        var un = d.rows.filter(function (r) { return !r.asset_id; });
+        if (!old) document.getElementById('sTxt').textContent = T.done + ': ' + d.rows.length + ' ' + T.active + ' · ' + d.subnet;
+        document.getElementById('sSum').innerHTML = '<div class="mb-3 text-sm rounded-lg px-4 py-3 ' + (un.length ? 'bg-amber-50 border border-amber-200 text-amber-900' : 'bg-blue-50 border border-blue-100 text-slate-700') + '">' + (old ? esc(T.lastScan) + ' (' + esc(d.scanned_at) + '): ' : '') + '<b>' + d.rows.length + ' ' + esc(T.active) + ', ' + un.length + ' ' + esc(T.notReg) + '.</b>'
+            + (d.missing && d.missing.length ? ' ' + esc(T.missing) + ': ' + esc(d.missing.join(', ')) + '.' : '') + '</div>';
+        document.getElementById('sRows').innerHTML = d.rows.map(function (r) {
+            return '<tr class="border-t ' + (r.asset_id ? '' : 'bg-amber-50/60') + '"><td class="px-3 py-2 font-mono text-xs">' + esc(r.ip) + '</td><td class="px-3 py-2 font-mono text-xs">' + esc(r.mac || '-') + '</td><td class="px-3 py-2">' + esc(r.vendor || '-') + '</td><td class="px-3 py-2 text-xs">' + esc(r.host || '-') + '</td><td class="px-3 py-2 text-right tabular-nums">' + r.ms + ' ms</td>'
+                + '<td class="px-3 py-2">' + (r.asset_id ? '<span class="text-xs font-semibold text-green-700">' + esc(T.registered) + '</span> ' + esc(r.asset_name) : '<span class="text-xs font-semibold text-amber-700">' + esc(T.unregistered) + '</span> <a class="ml-2 text-xs text-blue-600 hover:underline" href="#/assets">' + esc(T.register) + ' &rarr;</a>') + '</td></tr>';
+        }).join('') || '<tr><td colspan="6" class="px-3 py-6 text-center text-slate-500">-</td></tr>';
+    }
+    var sNet = document.getElementById('sNet');
+    if (sNet) { var showSaved = function () { if (SAVED[sNet.value]) showScan(SAVED[sNet.value], true); }; sNet.onchange = function () { document.getElementById('sSum').innerHTML = ''; document.getElementById('sRows').innerHTML = ''; showSaved(); }; showSaved(); }
+
+  }
+  const TPL = { topo: `@@SUSPECTS@@
+
+<div class="bg-white rounded-xl shadow-sm p-3 mb-3 flex flex-wrap items-center gap-3 text-sm">
+    <label class="flex items-center gap-2">Lokasi        <select id="tLoc" class="border border-slate-300 rounded-lg px-2 py-1.5">@@LOCOPTS@@</select></label>
+    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="tGroup" checked class="rounded"> Kotak per lokasi</label>
+    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="tCable" checked class="rounded"> Warna kabel per switch / router</label>
+    <button type="button" id="tArrange" class="inline-flex items-center gap-1 border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50">&#10021; Geser bebas</button>
+    <label class="flex items-center gap-2"><input type="search" id="tQ" placeholder="Cari perangkat / aset…" class="border border-slate-300 rounded-lg px-3 py-1.5 w-56"><span id="tQn" class="text-xs text-slate-500"></span></label>
+    <span class="flex flex-wrap gap-2 text-xs"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap bg-green-100 text-green-700"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Normal</span><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap bg-amber-100 text-amber-700"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Lambat</span><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Mati / diduga mati</span><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Tanpa IP / belum dicek</span><span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold text-blue-700"><svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke="#2563eb" stroke-width="2" stroke-dasharray="5 3"/></svg>Koneksi tambahan</span><span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold text-slate-600"><svg width="18" height="12"><rect x="1" y="1" width="16" height="10" rx="3" fill="#fff" stroke="#64748b" stroke-width="1.2" stroke-dasharray="3 2"/></svg>Belum dihubungkan (ditaruh di kotak lokasinya)</span></span>
+</div>
+<style>#topo.arr .node { cursor: grab !important; touch-action: none; user-select: none; } #topo .node.dragging > rect:first-child { stroke: #f59e0b !important; stroke-width: 3 !important; } #topo .node.dragging { filter: drop-shadow(0 6px 10px rgba(15,23,42,.3)); } #topo.arr svg { background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px; }</style>
+<div id="tArrBar" style="top: calc(-1 * var(--main-pad, 0px));" class="hidden sticky z-20 bg-amber-50 border border-amber-300 rounded-xl shadow-md p-3 mb-3 flex flex-wrap items-center gap-2 text-sm">
+    <span class="font-semibold text-amber-800">&#10021; Mode geser bebas</span>
+    <span class="text-amber-800">Tahan klik pada kotak lalu geser ke mana saja; garis koneksi ikut menyesuaikan. Tahan Shift saat menggeser untuk ikut memindahkan seluruh cabang di bawahnya.</span>
+    <span id="tArrDirty" class="hidden text-xs font-semibold text-amber-700">&#9679; Belum disimpan</span>
+    <span class="ml-auto flex flex-wrap gap-2">
+        <button type="button" id="tArrSave" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-1.5 font-semibold">Simpan posisi</button>
+        <button type="button" id="tArrCancel" class="border border-slate-300 bg-white rounded-lg px-3 py-1.5">Selesai / batal</button>
+        <button type="button" id="tArrReset" class="border border-red-300 text-red-700 bg-white rounded-lg px-3 py-1.5">Kembali ke susunan otomatis</button>
+    </span>
+</div>
+<div class="bg-white rounded-xl shadow-sm p-3 mb-3 flex flex-wrap items-end gap-3 text-sm">
+    <label class="flex flex-col gap-1"><span class="text-xs text-slate-500">Isi cetakan</span>
+        <select id="pNet" class="border border-slate-300 rounded-lg px-2 py-1.5"><option value="0">Semua aset ber-IP &amp; perangkat jaringan</option><option value="1">Perangkat jaringan saja (lebih ringkas)</option></select></label>
+    <label class="flex flex-col gap-1"><span class="text-xs text-slate-500">Kertas</span>
+        <select id="pOrient" class="border border-slate-300 rounded-lg px-2 py-1.5"><option value="portrait">A4 tegak</option><option value="landscape">A4 mendatar</option></select></label>
+    <button type="button" id="btnTopoPrint" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium"><svg class="shrink-0 w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg> Cetak</button>
+    <button type="button" id="btnTopoPdf" class="inline-flex items-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-4 py-2 font-medium"><svg class="shrink-0 w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Simpan PDF</button>
+    <span class="text-xs text-slate-500 pb-2">Memakai kop surat &amp; filter lokasi di atas. Topologi panjang otomatis dipotong per halaman.</span>
+</div>
+<div id="topo" class="bg-slate-50 border border-slate-200 rounded-xl overflow-x-auto mb-3"></div>
+<div id="nodeInfo" class="bg-white rounded-xl shadow-sm p-4 text-sm text-slate-600">Klik kotak perangkat untuk melihat detailnya.</div>
+<p class="text-xs text-slate-500 mt-2">Topologi disusun otomatis dari kolom &quot;Terhubung ke&quot; (tab Data koneksi). Aset yang belum dihubungkan tampil di bawah &quot;Belum dihubungkan&quot;. Switch biasa (tanpa IP) berwarna merah bila semua aset di bawahnya mati pada pengecekan terakhir.</p>
+
+`, check: `@@SUSPECTS@@
+
+@@STATS@@
+
+<div class="bg-white rounded-xl shadow-sm p-3 mb-3 flex flex-wrap items-end gap-3 text-sm">
+    <label class="flex flex-col gap-1"><span class="text-xs text-slate-500">Jenis</span>
+        <select id="fType" class="border border-slate-300 rounded-lg px-2 py-1.5">@@TYPEOPTS@@</select></label>
+    <label class="flex flex-col gap-1"><span class="text-xs text-slate-500">Lokasi</span>
+        <select id="fLoc" class="border border-slate-300 rounded-lg px-2 py-1.5">@@LOCOPTS@@</select></label>
+    <label class="flex flex-col gap-1"><span class="text-xs text-slate-500">Status</span>
+        <select id="fState" class="border border-slate-300 rounded-lg px-2 py-1.5"><option value="">Semua</option><option value="err">Mati</option><option value="warn">Lambat</option><option value="ok">Normal</option><option value="na">Belum dicek</option></select></label>
+    <label class="flex flex-col gap-1 flex-1 min-w-[160px]"><span class="text-xs text-slate-500">Cari</span>
+        <input id="fQ" type="search" placeholder="Nama, no aset, IP" class="border border-slate-300 rounded-lg px-2 py-1.5"></label>
+    <button id="btnCheck" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium disabled:opacity-50"><svg class="shrink-0 w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg> Cek sekarang</button>
+    <label class="flex items-center gap-2 pb-2"><input type="checkbox" id="autoPage" class="w-4 h-4"> Pantau selama halaman dibuka (tiap 1 menit)</label>
+</div>
+<div id="prog" class="hidden mb-3 flex items-center gap-3 text-sm text-slate-600"><span id="progTxt"></span><div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div id="progBar" class="h-full bg-blue-600 transition-all" style="width:0"></div></div></div>
+
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto mb-4">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-xs"><tr>
+            <th class="px-3 py-2 w-8"><input type="checkbox" id="chkAll" class="w-4 h-4" title="Pilih semua"></th>
+            <th class="text-left px-3 py-2">Aset</th><th class="text-left px-3 py-2">Jenis</th>
+            <th class="text-left px-3 py-2">Lokasi</th><th class="text-left px-3 py-2">IP</th>
+            <th class="text-left px-3 py-2">Terhubung ke</th><th class="text-left px-3 py-2">Status</th>
+            <th class="text-right px-3 py-2">Ping</th><th class="text-right px-3 py-2">Paket hilang</th>
+            <th class="text-left px-3 py-2">Dicek</th><th class="px-3 py-2"></th>
+        </tr></thead>
+        <tbody id="netRows"></tbody>
+    </table>
+</div>
+<p class="text-xs text-slate-500 mb-4">Centang beberapa aset untuk mengecek sebagian saja; tanpa centang, semua aset yang tampil ikut dicek. Lambat = ping rata-rata ≥ 100 ms atau paket hilang ≥ 5%. Bila ping diblokir firewall, sistem mencoba port TCP (PC 445/3389, printer 9100, CCTV/NVR 80/554).</p>
+
+<h2 class="font-semibold text-slate-800 mb-2">Riwayat pengecekan</h2>
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-xs"><tr><th class="text-left px-3 py-2">Waktu</th><th class="text-left px-3 py-2">Oleh</th><th class="text-right px-3 py-2">Dicek</th><th class="text-right px-3 py-2">Normal</th><th class="text-right px-3 py-2">Lambat</th><th class="text-right px-3 py-2">Mati</th><th class="text-left px-3 py-2">Bermasalah</th></tr></thead>
+    <tbody>@@HIST@@</tbody>
+</table></div>
+
+`, scan: `
+<div class="bg-white rounded-xl shadow-sm p-3 mb-3 flex flex-wrap items-end gap-3 text-sm">
+    <label class="flex flex-col gap-1"><span class="text-xs text-slate-500">Subnet</span>
+        <select id="sNet" class="border border-slate-300 rounded-lg px-2 py-1.5 font-mono">@@NETOPTS@@</select></label>
+    <button id="btnScan" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium disabled:opacity-50"><svg class="shrink-0 w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> Mulai scan</button>
+    <span class="text-xs text-slate-500">Ping 1 paket ke 254 alamat, lalu membaca tabel ARP server. Demo: hasil scan disimulasikan.</span>
+</div>
+<div id="sProg" class="hidden mb-3 flex items-center gap-3 text-sm text-slate-600"><span id="sTxt"></span><div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div id="sBar" class="h-full bg-blue-600 transition-all" style="width:0"></div></div></div>
+<div id="sSum"></div>
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-xs"><tr><th class="text-left px-3 py-2">IP</th><th class="text-left px-3 py-2">MAC</th><th class="text-left px-3 py-2">Perkiraan merek</th><th class="text-left px-3 py-2">Nama host</th><th class="text-right px-3 py-2">Ping</th><th class="text-left px-3 py-2">Di menu Aset</th></tr></thead>
+    <tbody id="sRows"><tr><td colspan="6" class="px-3 py-6 text-center text-slate-500">Pilih subnet lalu klik Mulai scan. Hasil scan terakhir tiap subnet disimpan.</td></tr></tbody>
+</table></div>
+<p class="text-xs text-slate-500 mt-1">MAC hanya terbaca untuk perangkat di subnet yang sama dengan server; subnet lain dilewati router sehingga MAC-nya tidak terlihat.</p>
+
+` };
+  const optList = (arr) => '<option value="">Semua</option>' + arr.map((x) => `<option>${esc(x)}</option>`).join('');
+  function netTabs() {
+    return `<div class="flex gap-1 overflow-x-auto border-b border-slate-200 mb-4 text-sm">${NET_TABS.map(([k, l]) => `<button type="button" data-ntab="${k}" class="px-4 py-2.5 whitespace-nowrap border-b-2 ${netUi.tab === k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-700'}">${l}</button>`).join('')}</div>`;
+  }
+  function netCheckPage() {
+    const A = netAssets().filter((a) => a.ip), cnt = (s) => A.filter((a) => a.state === s).length, last = N().checks[0];
+    const card = (l, v, cls) => `<div class="bg-white rounded-xl shadow-sm p-4"><p class="text-xs text-slate-500">${l}</p><p class="text-2xl font-semibold tabular-nums ${cls}">${v}</p></div>`;
+    const stats = `<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">${card('Aset ber-IP', A.length, 'text-slate-800')}${card('Normal', cnt('ok'), 'text-green-700')}${card('Lambat', cnt('warn'), 'text-amber-600')}${card('Mati', cnt('err'), 'text-red-600')}${card('Cek terakhir', last ? last.at.slice(8, 10) + '/' + last.at.slice(5, 7) + ' ' + last.at.slice(11, 16) : '-', 'text-slate-800')}</div>`;
+    const hist = N().checks.map((h) => `<tr class="border-t align-top"><td class="px-3 py-2 whitespace-nowrap tabular-nums">${esc(h.at.slice(0, 16))}</td><td class="px-3 py-2">${esc(h.by)}</td><td class="px-3 py-2 text-right tabular-nums">${h.n}</td><td class="px-3 py-2 text-right tabular-nums text-green-700">${h.ok}</td><td class="px-3 py-2 text-right tabular-nums text-amber-600">${h.warn}</td><td class="px-3 py-2 text-right tabular-nums text-red-600">${h.err}</td><td class="px-3 py-2 text-xs text-slate-600 whitespace-pre-line">${esc(h.detail)}</td></tr>`).join('') || '<tr><td colspan="7" class="px-3 py-6 text-center text-slate-400">Belum ada riwayat. Klik Cek sekarang.</td></tr>';
+    const types = [...new Set(A.map((a) => a.type))].sort(), locs = [...new Set(A.map((a) => a.loc))].sort();
+    return TPL.check.replace('@@SUSPECTS@@', suspectsHtml()).replace('@@STATS@@', stats).replace('@@TYPEOPTS@@', optList(types)).replace('@@LOCOPTS@@', optList(locs)).replace('@@HIST@@', hist);
+  }
+  function netTopoPage() {
+    const locs = [...new Set(N().devices.map((a) => a.loc))].sort();
+    return TPL.topo.replace('@@SUSPECTS@@', suspectsHtml()).replace('@@LOCOPTS@@', optList(locs));
+  }
+  function netScanPage() { return TPL.scan.replace('@@NETOPTS@@', N().subnets.map((s) => `<option>${esc(s)}</option>`).join('')); }
+  // Data koneksi (versi demo, lebih ringkas dari aplikasi asli): pilih induk & port, koneksi tambahan.
+  function netLinksPage() {
+    const D = N().devices, nets = D.filter((d) => d.is_net), nameOf = (id) => (D.find((x) => x.id === id) || {}).name || '';
+    const rows = D.map((d) => `<tr class="border-t"><td class="px-3 py-2"><b class="text-slate-800">${esc(d.name)}</b><div class="text-xs text-slate-500">${esc(d.type)} · ${esc(d.loc)}${d.ip ? ' · ' + esc(d.ip) : ''}</div></td>
+      <td class="px-3 py-2"><select data-lpar="${d.id}" class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm w-full min-w-[12rem]"><option value="">— paling atas / belum dihubungkan —</option>${nets.filter((n) => n.id !== d.id).map((n) => `<option value="${n.id}" ${d.parent === n.id ? 'selected' : ''}>${esc(n.name)}</option>`).join('')}</select></td>
+      <td class="px-3 py-2"><input data-lport="${d.id}" value="${esc(d.port)}" placeholder="eth1" class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm w-24 font-mono"></td>
+      <td class="px-3 py-2"><input data-lown="${d.id}" value="${esc(d.own_port)}" placeholder="eth1" class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm w-24 font-mono"></td></tr>`).join('');
+    const ex = N().extra.map((l) => `<li class="flex items-center justify-between gap-2 border-t py-2"><span><b>${esc(nameOf(l.a))}</b> <span class="font-mono text-xs">${esc(l.port_a)}</span> ⇄ <b>${esc(nameOf(l.b))}</b> <span class="font-mono text-xs">${esc(l.port_b)}</span></span><button data-exdel="${l.id}" class="text-red-500 hover:text-red-700">${icon('trash')}</button></li>`).join('') || '<li class="text-slate-400 py-2">Belum ada.</li>';
+    const opt = D.map((d) => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
+    return `${demoNote('Versi demo yang diringkas. Di aplikasi asli tersedia pencarian, pilih banyak + Terapkan, isi massal per lokasi, daftar port dengan keterangan "terpakai", dan import Excel perangkat jaringan.')}
+<div class="bg-white rounded-xl shadow-sm p-4 mb-4"><h2 class="font-semibold text-slate-800 mb-2">Koneksi tambahan</h2><p class="text-xs text-slate-500 mb-2">Untuk perangkat yang tersambung ke lebih dari satu switch/router (mis. NVR dengan 2 LAN, uplink fiber). Digambar garis biru putus-putus di topologi.</p>
+<ul class="text-sm mb-3">${ex}</ul>
+<form id="exForm" class="flex flex-wrap items-end gap-2 text-sm"><select name="a" class="border border-slate-300 rounded-lg px-2 py-1.5">${opt}</select><input name="port_a" placeholder="port" class="border border-slate-300 rounded-lg px-2 py-1.5 w-24 font-mono"><span class="pb-2">⇄</span><select name="b" class="border border-slate-300 rounded-lg px-2 py-1.5">${opt}</select><input name="port_b" placeholder="port" class="border border-slate-300 rounded-lg px-2 py-1.5 w-24 font-mono"><button class="${btnPrimary}">${icon('plus')} Tambah</button></form></div>
+<div class="bg-white rounded-xl shadow-sm overflow-x-auto"><div class="flex items-center justify-between px-4 py-3 border-b"><p class="font-semibold text-slate-700">Terhubung ke (koneksi utama)</p><button id="lkSave" class="${btnPrimary}">${icon('check')} Simpan</button></div>
+<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500 text-xs"><tr><th class="text-left px-3 py-2">Perangkat / aset</th><th class="text-left px-3 py-2">Terhubung ke</th><th class="text-left px-3 py-2">Port di perangkat atas</th><th class="text-left px-3 py-2">Port di perangkat ini</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  PAGES.network = {
+    render() {
+      const body = { check: netCheckPage, topo: netTopoPage, scan: netScanPage, links: netLinksPage }[netUi.tab]();
+      return netTabs() + (netUi.tab !== 'links' ? demoNote('Demo: ping dan scan disimulasikan di browser. Di aplikasi asli, server menjalankan ping & arp sungguhan hanya saat tombol ditekan.') : '') + body
+        + '<div id="netToast" class="fixed right-4 bottom-4 z-50 flex flex-col gap-2 max-w-sm"></div>';
+    },
+    bind() {
+      $$('[data-ntab]').forEach((b) => (b.onclick = () => { netUi.tab = b.dataset.ntab; render(); }));
+      if (netUi.tab === 'links') {
+        $('#lkSave').onclick = () => {
+          const D = N().devices, kids = (id) => { const o = []; const st = [id]; while (st.length) { const c = st.pop(); D.forEach((k) => { if (k.parent === c) { o.push(k.id); st.push(k.id); } }); } return o; };
+          let bad = '';
+          $$('[data-lpar]').forEach((s) => { const d = D.find((x) => x.id === +s.dataset.lpar), p = s.value ? +s.value : null; if (p && kids(d.id).includes(p)) { bad = `${d.name}: sambungan melingkar ditolak.`; return; } d.parent = p; });
+          $$('[data-lport]').forEach((i) => { D.find((x) => x.id === +i.dataset.lport).port = i.value.trim(); });
+          $$('[data-lown]').forEach((i) => { D.find((x) => x.id === +i.dataset.lown).own_port = i.value.trim(); });
+          save(); render(); toast(bad || 'Data koneksi disimpan.', !bad);
+        };
+        $('#exForm').onsubmit = (e) => { e.preventDefault(); const f = formData(e.target); if (f.a === f.b) { toast('Pilih dua perangkat yang berbeda.', false); return; }
+          N().extra.push({ id: nextId(N().extra), a: +f.a, b: +f.b, port_a: f.port_a.trim(), port_b: f.port_b.trim() }); save(); render(); toast('Koneksi tambahan disimpan.'); };
+        $$('[data-exdel]').forEach((b) => (b.onclick = () => { N().extra = N().extra.filter((x) => x.id !== +b.dataset.exdel); save(); render(); }));
+        return;
+      }
+      netInit({
+        assets: netAssets(), extra: N().extra.map((x) => Object.assign({}, x)), pos: Object.assign({}, N().pos), saved: N().scans,
+        post: netPost, reload: () => render(), printNote: () => toast('Cetak & Simpan PDF topologi (berkop surat) tersedia di aplikasi asli.'),
+      });
+    },
+  };
+  ADMIN_NAV.splice(ADMIN_NAV.findIndex((n) => n[0] === 'cctv') + 1, 0, ['network', 'network', 'Jaringan']);
 
   // ------------------------------------------------------------------
   render();
