@@ -1,0 +1,25 @@
+# Setiap kali download/asker-it-asset.zip diperbarui di branch main, buat rilis baru di GitHub Releases
+# dengan ZIP tersebut. Tombol unduh di unduh.html mengarah ke rilis terbaru, dan penghitung unduhan
+# menjumlahkan unduhan ZIP dari semua rilis.
+name: Rilis ZIP installer
+on:
+  push:
+    branches: [main]
+    paths: ['download/asker-it-asset.zip']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  rilis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Buat rilis
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v$(TZ=Asia/Jakarta date +%Y.%m.%d-%H%M)"
+          gh release create "$TAG" download/asker-it-asset.zip \
+            --title "ASKER IT Asset — $(TZ=Asia/Jakarta date +'%d-%m-%Y %H:%M')" \
+            --notes "Versi terbaru ASKER IT Asset (PHP + MySQL, siap dipasang di XAMPP). Cara pasang: lihat PANDUAN_INSTALASI.md di dalam ZIP. Daftar fitur: https://reksa-yp.github.io/it-asset-management-demo/unduh.html" \
+            --latest
