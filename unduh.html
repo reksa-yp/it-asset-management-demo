@@ -29,12 +29,17 @@
     <h1 data-en="Office IT assets, organised in one system." class="text-3xl sm:text-5xl font-extrabold leading-tight max-w-3xl">Aset IT kantor, rapi dalam satu sistem.</h1>
     <p data-en="A web app for IT asset management and helpdesk: asset inventory, ticketing, stock, asset transfers, CCTV and network monitoring, and audit export. Free to use and free to build on." class="mt-4 text-slate-300 text-base sm:text-lg max-w-2xl">Aplikasi web manajemen aset IT dan helpdesk: inventaris aset, ticketing, stok barang, mutasi aset, monitoring CCTV dan jaringan, serta export audit. Gratis dipakai dan boleh dikembangkan sendiri.</p>
     <div class="mt-8 flex flex-wrap gap-3">
-      <a href="download/asker-it-asset.zip" download class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl px-6 py-3">
+      <a href="https://github.com/reksa-yp/it-asset-management-demo/releases/latest/download/asker-it-asset.zip" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl px-6 py-3">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-        <span data-en="Download the app (ZIP, 10 MB)">Unduh aplikasi (ZIP, 10 MB)</span></a>
+        <span data-en="Download the app (ZIP, 11 MB)">Unduh aplikasi (ZIP, 11 MB)</span></a>
       <a href="./" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl px-6 py-3 border border-white/20" data-en="Try the live demo →">Coba demo langsung →</a>
       <a href="download/Panduan-Penggunaan-ASKER-IT-Asset.pdf" target="_blank" rel="noopener" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl px-6 py-3 border border-white/20" data-en="User guide (PDF)">Panduan penggunaan (PDF)</a>
     </div>
+    <!-- Penghitung unduhan: jumlah unduhan file ZIP di GitHub Releases (semua versi), dibaca dari API publik GitHub. -->
+    <p id="dlStat" hidden class="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-1.5 text-sm text-slate-200">
+      <svg class="w-4 h-4 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+      <span>Sudah <b id="dlCount" class="text-white tabular-nums">0</b> kali diunduh</span>
+    </p>
     <p data-en="The demo runs in your browser with sample data. Accounts: <b class=&quot;text-slate-200&quot;>admin</b> / <b class=&quot;text-slate-200&quot;>admin123</b> or <b class=&quot;text-slate-200&quot;>user</b> / <b class=&quot;text-slate-200&quot;>user123</b>." class="mt-4 text-sm text-slate-400">Demo berjalan di browser dengan data contoh. Akun: <b class="text-slate-200">admin</b> / <b class="text-slate-200">admin123</b> atau <b class="text-slate-200">user</b> / <b class="text-slate-200">user123</b>.</p>
   </div>
 </header>
@@ -62,7 +67,7 @@
       <div class="bg-white rounded-xl p-4 shadow-sm ring-1 ring-brand-600/30"><b data-en="Network (new)" class="block text-slate-900">Jaringan (baru)</b><span data-en="Check every IP asset in one click, an automatic topology with a box per location and a cable colour per switch/router, drag boxes freely like Visio, connect devices and edit ports right on the diagram with a port-clash warning, a port map per switch, change history with undo, subnet scan, and print/PDF/PNG." class="text-slate-600">Cek koneksi semua aset ber-IP sekali klik, topologi otomatis dengan kotak per lokasi dan warna kabel per switch/router, kotak bisa digeser bebas seperti Visio, hubungkan perangkat & ubah port langsung di diagram (ada peringatan port bentrok), peta port per switch, riwayat perubahan + batalkan, scan subnet, serta cetak/PDF/PNG.</span></div>
       <div class="bg-white rounded-xl p-4 shadow-sm ring-1 ring-brand-600/30"><b data-en="Network Devices &amp; Printers (new)" class="block text-slate-900">Perangkat Jaringan &amp; Printer (baru)</b><span data-en="Dedicated forms and Excel import for switches, routers and APs: several IPs per router, eth/SFP ports, extra links. Printers: USB or LAN, company-owned or rented." class="text-slate-600">Form dan import Excel khusus switch, router, dan AP: banyak IP per router, port eth/SFP, koneksi tambahan. Printer: USB atau LAN, milik perusahaan atau sewa.</span></div>
       <div class="bg-white rounded-xl p-4 shadow-sm"><b data-en="Phone Extensions" class="block text-slate-900">Ext Telepon</b><span data-en="The office extension list for admins and users, ready to print, PDF, or Excel." class="text-slate-600">Daftar nomor extension kantor untuk admin dan user, siap cetak, PDF, atau Excel.</span></div>
-      <div class="bg-white rounded-xl p-4 shadow-sm"><b data-en="Practical" class="block text-slate-900">Praktis</b><span data-en="Works on phones and laptops, two languages (Indonesian/English), Excel import and export." class="text-slate-600">Nyaman di HP dan laptop, dua bahasa (Indonesia/English), import dan export Excel.</span></div>
+      <div class="bg-white rounded-xl p-4 shadow-sm"><b data-en="Practical (updated)" class="block text-slate-900">Praktis (diperbarui)</b><span data-en="Works on phones and laptops; on phones, users get their menu as buttons at the bottom of the screen. Two languages (Indonesian/English), Excel import and export." class="text-slate-600">Nyaman di HP dan laptop; di HP, menu user tampil sebagai tombol di bawah layar. Dua bahasa (Indonesia/English), import dan export Excel.</span></div>
     </div>
   </section>
 
@@ -112,7 +117,7 @@
     <div><h2 data-en="Try it before installing" class="text-xl font-bold">Coba dulu sebelum memasang</h2><p data-en="The demo works right away with no installation. Changes are saved only in your browser." class="text-brand-100 text-sm mt-1">Demo bisa langsung dipakai tanpa instalasi. Perubahan hanya tersimpan di browser Anda.</p></div>
     <div class="flex flex-wrap gap-3">
       <a data-en="Open demo" href="./" class="inline-flex items-center bg-white text-brand-700 font-semibold rounded-xl px-5 py-2.5">Buka demo</a>
-      <a data-en="Download ZIP" href="download/asker-it-asset.zip" download class="inline-flex items-center bg-brand-800 hover:bg-brand-900 text-white font-semibold rounded-xl px-5 py-2.5">Unduh ZIP</a>
+      <a data-en="Download ZIP" href="https://github.com/reksa-yp/it-asset-management-demo/releases/latest/download/asker-it-asset.zip" class="inline-flex items-center bg-brand-800 hover:bg-brand-900 text-white font-semibold rounded-xl px-5 py-2.5">Unduh ZIP</a>
     </div>
   </section>
 </main>
@@ -186,6 +191,32 @@
     });
     var saved = null; try { saved = localStorage.getItem('unduhLang'); } catch (e) {}
     setLang(saved === 'en' || saved === 'id' ? saved : ((navigator.language || 'id').toLowerCase().indexOf('id') === 0 ? 'id' : 'en'));
+
+    // Penghitung unduhan dari GitHub Releases. Disimpan 10 menit di browser agar tidak melewati batas API (60 permintaan/jam per IP).
+    var stat = document.getElementById('dlStat'), num = document.getElementById('dlCount');
+    var label = stat.querySelector('span');
+    function showCount(n) {
+      var en = document.documentElement.lang === 'en';
+      num.textContent = n.toLocaleString(en ? 'en-US' : 'id-ID');
+      label.firstChild.nodeValue = en ? 'Downloaded ' : 'Sudah ';
+      label.lastChild.nodeValue = en ? (n === 1 ? ' time' : ' times') : ' kali diunduh';
+      stat.hidden = false; stat._n = n;
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-lang]'), function (b) {
+      b.addEventListener('click', function () { if (stat._n != null) showCount(stat._n); });
+    });
+    var cache = null; try { cache = JSON.parse(localStorage.getItem('unduhCount') || 'null'); } catch (e) {}
+    if (cache && Date.now() - cache.t < 600000) { showCount(cache.n); return; }
+    if (cache) showCount(cache.n);
+    fetch('https://api.github.com/repos/reksa-yp/it-asset-management-demo/releases?per_page=100', { headers: { Accept: 'application/vnd.github+json' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (rels) {
+        var n = 0;
+        rels.forEach(function (rel) { (rel.assets || []).forEach(function (a) { if (/\.zip$/i.test(a.name)) n += a.download_count || 0; }); });
+        showCount(n);
+        try { localStorage.setItem('unduhCount', JSON.stringify({ n: n, t: Date.now() })); } catch (e) {}
+      })
+      .catch(function () { /* API tidak terjangkau: penghitung tetap disembunyikan (atau angka terakhir yang tersimpan) */ });
   })();
 </script>
 </body>
