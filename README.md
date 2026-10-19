@@ -5,7 +5,7 @@
 🔗 **Live demo:** <https://reksa-yp.github.io/it-asset-management-demo/>
 
 ⬇️ **Unduh aplikasi (open source, lisensi MIT):** <https://reksa-yp.github.io/it-asset-management-demo/unduh.html>
-— atau langsung file ZIP-nya: [`download/asker-it-asset.zip`](download/asker-it-asset.zip) (PHP + MySQL, siap dipasang di XAMPP).
+— atau langsung file ZIP-nya: [`asker-it-asset.zip`](https://github.com/reksa-yp/it-asset-management-demo/releases/latest/download/asker-it-asset.zip) (versi terbaru dari halaman [Releases](https://github.com/reksa-yp/it-asset-management-demo/releases)) (PHP + MySQL, siap dipasang di XAMPP).
 
 📘 **Panduan penggunaan (PDF, 33 halaman):** [`download/Panduan-Penggunaan-ASKER-IT-Asset.pdf`](download/Panduan-Penggunaan-ASKER-IT-Asset.pdf) — fungsi setiap menu dan cara menggunakannya. File ini juga ada di dalam ZIP.
 
