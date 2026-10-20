@@ -67,6 +67,7 @@
   const localDay = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
   const ICONS = {
+    chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/>',
     dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
     laptop: '<path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/>',
     tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/>',
@@ -299,6 +300,7 @@
     ['categories', 'tag', 'Kategori Aset'],
     ['users', 'users', 'Management User'],
     ['tickets', 'ticket', 'Ticketing IT'],
+    ['chat', 'chat', 'Chat Grup'],
     ['stock', 'package', 'Stok Barang'],
     ['mutations', 'transfer', 'Mutasi Aset'],
     ['damages', 'alert', 'Aset Rusak'],
@@ -311,6 +313,7 @@
   const USER_NAV = [
     ['my-asset', 'monitor', 'Aset Saya'],
     ['tickets', 'ticket', 'Ticketing IT'],
+    ['chat', 'chat', 'Chat Grup'],
     ['queue', 'clock', 'Antrian Ticket'],
     ['signature', 'mail', 'Signature Email'],
   ];
@@ -1392,7 +1395,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
           <div><p class="text-xs text-slate-400">Status</p><span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[ticketStatus(t)]}">${ticketStatus(t)}</span></div>
           <div><p class="text-xs text-slate-400">Dibuat</p><p>${fmtDateTime(t.created_at)}</p></div>
         </div>
-        <div><p class="text-xs text-slate-400 mb-1">Rincian Masalah</p><p class="bg-slate-50 rounded-lg p-3">${esc(t.problem_detail)}</p></div>
+        <div><p class="text-xs text-slate-400 mb-1">Rincian Masalah</p><p class="bg-slate-50 rounded-lg p-3">${esc(t.problem_detail)}</p>${ticketPhotosHtml(t)}</div>
         ${cancel ? `<div class="bg-slate-100 rounded-lg p-3 text-slate-600">Dibatalkan oleh user${cancel.reason ? ': ' + esc(cancel.reason) : ''}</div>` : ''}
         <form id="workForm" class="space-y-3">
           ${field('Rincian Pengerjaan', `<textarea name="work_detail" rows="3" ${canEdit ? '' : 'readonly'} class="${inputCls}" placeholder="Apa yang sudah dikerjakan IT">${esc(w.work_detail || '')}</textarea>`)}
@@ -1438,7 +1441,7 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
         <td class="py-2.5 px-4 font-medium whitespace-nowrap"><a href="#" data-open="${t.id}" class="text-blue-600 hover:underline">${esc(t.ticket_number)}</a><div class="text-xs text-slate-400 font-normal">Dibuat: ${fmtDateTime(t.created_at)}</div>${doneAt(t) ? `<div class="text-xs text-green-700 font-normal">Selesai: <b>${fmtDateTime(doneAt(t))}</b></div><div class="text-xs text-slate-400 font-normal">Lama: ${durationLabel(t.created_at, doneAt(t))}</div>` : ''}</td>
         <td class="py-2.5 px-4 whitespace-nowrap">${esc(rep.full_name || DASH)}<div class="text-xs text-slate-400">${esc(rep.department || '')}</div>${a && a.location ? `<div class="text-xs text-slate-400">Lokasi: ${esc(a.location)}</div>` : ''}</td>
         <td class="py-2.5 px-4 whitespace-nowrap">${a ? `<a href="#" data-asset="${a.id}" class="hover:underline">${esc(a.asset_number)}</a>` : DASH}</td>
-        <td class="py-2.5 px-4 min-w-[14rem]">${esc(t.problem_detail)}${ticketHistoryHtml(t)}</td>
+        <td class="py-2.5 px-4 min-w-[14rem]">${esc(t.problem_detail)}${ticketPhotosHtml(t)}${ticketHistoryHtml(t)}</td>
         <td class="py-2.5 px-4 whitespace-nowrap">${esc(h ? h.full_name : DASH)}</td>
         <td class="py-2.5 px-4">${st === 'Dibatalkan' ? `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[st]}">${st}</span>` :
           `<select data-status="${t.id}" class="border rounded-lg px-2 py-1 text-xs font-medium ${TICKET_BADGE[st]}">${options(['Menunggu', 'Proses', 'Selesai'], st)}</select>`}</td>
@@ -1482,7 +1485,19 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
     <h2 class="font-semibold text-slate-700 mb-3">Buat Tiket Baru</h2>
     <form id="newTicket" class="space-y-3">
       ${field('Aset Bermasalah', `<select name="asset_id" class="${inputCls}">${options(myAssets.map((a) => ({ value: a.id, label: `${a.asset_number} — ${a.device_name || a.category}` })), '', '— Tidak terkait aset —')}</select>`)}
-      ${field('Rincian Masalah', `<textarea name="problem_detail" rows="4" required class="${inputCls}" placeholder="Jelaskan masalahnya, mis. printer tidak bisa print"></textarea>`)}
+      ${field('Rincian Masalah', `<textarea name="problem_detail" id="tpText" rows="4" required class="${inputCls}" placeholder="Jelaskan masalahnya, mis. printer tidak bisa print"></textarea>`)}
+      <div>
+        <div class="relative inline-block" id="tpWrap">
+          <button type="button" id="tpBtn" class="${btnGhost}">${icon('camera')} Foto masalah <span id="tpCount" class="hidden text-xs font-semibold bg-blue-600 text-white rounded-full px-1.5"></span></button>
+          <div id="tpMenu" class="hidden absolute left-0 bottom-full mb-2 z-30 w-64 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 text-sm">
+            <button type="button" id="tpCam" class="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50"><b class="block text-slate-800">Buka kamera</b><span class="text-xs text-slate-500">Potret langsung dari HP</span></button>
+            <button type="button" id="tpGal" class="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50"><b class="block text-slate-800">Pilih dari galeri / file</b><span class="text-xs text-slate-500">Foto yang sudah ada atau screenshot</span></button>
+          </div>
+          <input type="file" id="tpInCam" accept="image/*" capture="environment" class="hidden"><input type="file" id="tpInGal" accept="image/*" multiple class="hidden">
+        </div>
+        <div id="tpPrev" class="flex flex-wrap gap-2 mt-2"></div>
+        <p class="text-xs text-slate-400 mt-1">Opsional, maks. 3 foto. Bisa juga tempel screenshot (Ctrl+V). Foto dikecilkan otomatis.</p>
+      </div>
       <button class="${btnPrimary} w-full justify-center">${icon('plus')} Kirim Tiket</button>
     </form>
   </div>
@@ -1493,18 +1508,54 @@ ${ups.length ? `<div class="bg-red-50 border border-red-200 rounded-xl shadow-sm
         <div class="flex flex-wrap items-center justify-between gap-2"><a href="#" data-open="${t.id}" class="font-medium text-blue-600 hover:underline">${esc(t.ticket_number)}</a>
         <span class="px-2 py-0.5 rounded-full text-xs font-medium ${TICKET_BADGE[st]}">${st}</span></div>
         <p class="text-xs text-slate-400 mt-0.5">${fmtDateTime(t.created_at)}${t.asset_id && assetById(t.asset_id) ? ' · ' + esc(assetById(t.asset_id).asset_number) : ''}</p>
-        <p class="text-sm text-slate-700 mt-2">${esc(t.problem_detail)}</p>
+        <p class="text-sm text-slate-700 mt-2">${esc(t.problem_detail)}</p>${ticketPhotosHtml(t)}
         ${w && w.work_detail ? `<p class="text-xs text-slate-500 mt-2"><b>Pengerjaan IT:</b> ${esc(w.work_detail)}</p>` : ''}
         ${st === 'Menunggu' ? `<div class="mt-3 text-right"><button data-cancel="${t.id}" class="text-xs font-medium text-red-600 hover:underline">Batalkan tiket</button></div>` : ''}
       </div>`; }).join('')}</div>` : '<p class="text-sm text-slate-400 py-6 text-center">Anda belum pernah membuat tiket.</p>'}
   </div>
 </div>`;
   }
+  // Foto permasalahan tiket (demo: disimpan di browser, dikecilkan maks. 1000 px).
+  function ticketPhotosHtml(t) {
+    return t.photos && t.photos.length ? `<div class="flex flex-wrap gap-1.5 mt-2">${t.photos.map((src) => `<button type="button" data-photo="${esc(src)}" class="w-14 h-14 rounded-lg overflow-hidden border border-slate-200 hover:ring-2 hover:ring-blue-400"><img src="${esc(src)}" alt="" class="w-full h-full object-cover"></button>`).join('')}</div>` : '';
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-photo]'); if (!b) return;
+    e.preventDefault();
+    openModal('Foto permasalahan', `<img src="${esc(b.dataset.photo)}" alt="" class="w-full rounded-lg">`, { wide: true });
+  });
+  let tpPicked = [];
+  function tpShrink(f, done) {
+    const url = URL.createObjectURL(f), im = new Image();
+    im.onload = () => { const s = Math.min(1, 1000 / Math.max(im.width, im.height)), cv = document.createElement('canvas'); cv.width = Math.round(im.width * s); cv.height = Math.round(im.height * s); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url); done(cv.toDataURL('image/jpeg', 0.7)); };
+    im.onerror = () => { URL.revokeObjectURL(url); toast('File ini bukan gambar.', false); };
+    im.src = url;
+  }
+  function tpAdd(files) {
+    [...files].filter((f) => /^image\//.test(f.type)).slice(0, 3 - tpPicked.length).forEach((f) => tpShrink(f, (d) => { if (tpPicked.length < 3) { tpPicked.push(d); tpSync(); } }));
+  }
+  function tpSync() {
+    const prev = $('#tpPrev'); if (!prev) return;
+    prev.innerHTML = tpPicked.map((d, i) => `<div class="relative"><img src="${d}" class="w-14 h-14 object-cover rounded-lg border"><button type="button" data-tprm="${i}" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-800 text-white text-xs leading-5">&times;</button></div>`).join('');
+    $('#tpCount').textContent = tpPicked.length; $('#tpCount').classList.toggle('hidden', !tpPicked.length);
+    $$('[data-tprm]').forEach((b) => (b.onclick = () => { tpPicked.splice(+b.dataset.tprm, 1); tpSync(); }));
+  }
+  function bindTicketPhotos() {
+    tpPicked = []; tpSync();
+    const menu = $('#tpMenu');
+    $('#tpBtn').onclick = (e) => { e.stopPropagation(); if (tpPicked.length >= 3) { toast('Maksimal 3 foto per tiket.', false); return; } menu.classList.toggle('hidden'); };
+    document.addEventListener('click', (e) => { if (menu && !e.target.closest('#tpWrap')) menu.classList.add('hidden'); });
+    $('#tpCam').onclick = () => { menu.classList.add('hidden'); $('#tpInCam').click(); };
+    $('#tpGal').onclick = () => { menu.classList.add('hidden'); $('#tpInGal').click(); };
+    ['#tpInCam', '#tpInGal'].forEach((id) => ($(id).onchange = (e) => { tpAdd(e.target.files); e.target.value = ''; }));
+    $('#newTicket').onpaste = (e) => { const fs = [...(e.clipboardData ? e.clipboardData.files : [])]; if (fs.length) { e.preventDefault(); tpAdd(fs); } };
+  }
   function bindUserTickets() {
+    bindTicketPhotos();
     $('#newTicket').onsubmit = (e) => {
       e.preventDefault();
       const d = formData(e.target);
-      const t = { id: nextId(db.tickets), ticket_number: newTicketNumber(), asset_id: d.asset_id ? +d.asset_id : null, reported_by: sessionUserId, handled_by: null, problem_detail: d.problem_detail.trim(), status: 'Menunggu', created_at: new Date().toISOString(), resolved_at: null };
+      const t = { id: nextId(db.tickets), ticket_number: newTicketNumber(), asset_id: d.asset_id ? +d.asset_id : null, reported_by: sessionUserId, handled_by: null, problem_detail: d.problem_detail.trim(), status: 'Menunggu', created_at: new Date().toISOString(), resolved_at: null, photos: tpPicked.slice() };
       db.tickets.push(t);
       db.ticketLogs.push({ ticket_id: t.id, status: 'Menunggu', note: 'Tiket dibuat oleh user', changed_by: sessionUserId, changed_at: t.created_at });
       save(); render(); toast(`Tiket ${t.ticket_number} terkirim. Coba login sebagai Admin untuk memprosesnya.`);
@@ -3710,6 +3761,19 @@ ${isAdmin() ? `<td class="py-2 px-3 whitespace-nowrap text-right"><button data-e
     },
   };
   ADMIN_NAV.splice(ADMIN_NAV.findIndex((n) => n[0] === 'cctv') + 1, 0, ['network', 'network', 'Jaringan']);
+
+  // ------------------------------------------------------------------
+  // Chat Grup (demo): halaman chat terpisah (assets/demo/chat.html) di dalam bingkai.
+  // Pesan & foto disimpan di browser; di aplikasi asli tersimpan terenkripsi AES-256 di server.
+  // ------------------------------------------------------------------
+  const _origReset3 = resetDemo;
+  resetDemo = function () { _origReset3(); try { localStorage.removeItem('chatDemo2'); } catch (e) {} };
+  PAGES.chat = {
+    render() {
+      return demoNote('Demo Chat Grup: kirim pesan/foto (kamera, galeri, tempel), balas, sebut @nama, dibaca oleh, hapus, sematkan, bagikan tiket/aset, grup pengumuman' + (isAdmin() ? ', dan Kelola grup' : '') + '. Di aplikasi asli pesan & foto tersimpan terenkripsi di server.')
+        + `<iframe src="assets/demo/chat.html?embed=1&role=${isAdmin() ? 'admin' : 'user'}" title="Chat Grup" class="w-full bg-white rounded-xl shadow-sm border-0" style="height:calc(100dvh - 12rem);min-height:520px"></iframe>`;
+    },
+  };
 
   // ------------------------------------------------------------------
   render();
