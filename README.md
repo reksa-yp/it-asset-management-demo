@@ -76,6 +76,8 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
 
 ## Cara Memasang
 
+Satu ZIP untuk semua server. Di langkah pertama installer pilih **sistem operasi** (Windows / Linux), **jenis server** (server lokal, VPS, atau shared hosting), dan **database** (MySQL / MariaDB); petunjuk database, pengaturan awal, dan langkah lanjutan menyesuaikan pilihan itu. Untuk server lokal & VPS installer juga bisa membuatkan user database khusus aplikasi. Langkah per jenis server: [halaman unduh](https://reksa-yp.github.io/it-asset-management-demo/unduh.html) atau `PANDUAN_INSTALASI.md` di dalam ZIP.
+
 **Di komputer/server lokal (XAMPP):** ekstrak ZIP ke `C:\xampp\htdocs\asker-it-asset`, jalankan Apache & MySQL,
 buka `http://localhost/asker-it-asset/`, isi formulir instalasi, lalu hapus `install.php`.
 

@@ -76,15 +76,18 @@
 
   <section class="grid gap-6 lg:grid-cols-2">
     <div class="bg-white rounded-2xl p-6 shadow-sm">
-      <h2 data-en="How to install" class="text-xl font-bold mb-3">Cara memasang</h2>
-      <ol class="list-decimal pl-5 space-y-2 text-sm text-slate-700">
-        <li data-en="Download the ZIP above and extract it into <code class=&quot;bg-slate-100 px-1.5 py-0.5 rounded&quot;>htdocs</code>, for example <code class=&quot;bg-slate-100 px-1.5 py-0.5 rounded break-all&quot;>C:\xampp\htdocs\asker-it-asset</code>.">Unduh file ZIP di atas, lalu ekstrak ke <code class="bg-slate-100 px-1.5 py-0.5 rounded">htdocs</code>, misalnya <code class="bg-slate-100 px-1.5 py-0.5 rounded break-all">C:\xampp\htdocs\asker-it-asset</code>.</li>
-        <li data-en="Start Apache and MySQL.">Jalankan Apache dan MySQL.</li>
-        <li data-en="Open <code class=&quot;bg-slate-100 px-1.5 py-0.5 rounded break-all&quot;>http://localhost/asker-it-asset/</code>. The installer opens automatically.">Buka <code class="bg-slate-100 px-1.5 py-0.5 rounded break-all">http://localhost/asker-it-asset/</code>. Halaman instalasi terbuka otomatis.</li>
-        <li data-en="Fill in the database details, system name, and first admin account, then click <b>Instal sekarang</b> (Install now).">Isi data database, nama sistem, dan akun admin pertama, lalu klik <b>Instal sekarang</b>.</li>
-        <li data-en="Log in, then delete <code class=&quot;bg-slate-100 px-1.5 py-0.5 rounded&quot;>install.php</code> from the server.">Login, lalu hapus file <code class="bg-slate-100 px-1.5 py-0.5 rounded">install.php</code> dari server.</li>
-        <li data-en="Optional, for the CCTV menu: add the <b>CCTV</b> and <b>NVR</b> asset categories, enter the NVRs in CCTV &rarr; Settings, run <code class=&quot;bg-slate-100 px-1.5 py-0.5 rounded break-all&quot;>scripts\pasang_jadwal_cctv.bat</code> as administrator, and install ffmpeg on the server for live preview.">Opsional, untuk menu CCTV: tambahkan kategori aset <b>CCTV</b> dan <b>NVR</b>, isi data NVR di CCTV &rarr; Pengaturan, jalankan <code class="bg-slate-100 px-1.5 py-0.5 rounded break-all">scripts\pasang_jadwal_cctv.bat</code> sebagai administrator, dan pasang ffmpeg di server untuk live preview.</li>
-      </ol>
+      <h2 data-en="How to install" class="text-xl font-bold mb-1">Cara memasang</h2>
+      <p data-en="One ZIP for every server. Pick yours to see the steps; the installer asks the same choices." class="text-sm text-slate-500 mb-4">Satu ZIP untuk semua jenis server. Pilih server Anda untuk melihat langkahnya; installer menanyakan pilihan yang sama.</p>
+      <div id="pick" class="space-y-3 text-sm">
+        <div><p data-en="Operating system" class="text-xs font-semibold text-slate-500 mb-1">Sistem operasi</p>
+          <div class="flex flex-wrap gap-2" data-group="os"><button type="button" data-v="windows">Windows</button><button type="button" data-v="linux">Linux</button></div></div>
+        <div><p data-en="Server type" class="text-xs font-semibold text-slate-500 mb-1">Jenis server</p>
+          <div class="flex flex-wrap gap-2" data-group="server"><button type="button" data-v="lokal" data-en="Local server">Server lokal</button><button type="button" data-v="vps">VPS</button><button type="button" data-v="hosting" data-en="Shared hosting">Hosting</button></div></div>
+        <div><p class="text-xs font-semibold text-slate-500 mb-1">Database</p>
+          <div class="flex flex-wrap gap-2" data-group="db"><button type="button" data-v="mysql">MySQL</button><button type="button" data-v="mariadb">MariaDB</button></div></div>
+      </div>
+      <ol id="pickSteps" class="list-decimal pl-5 space-y-2 text-sm text-slate-700 mt-4 [&_code]:bg-slate-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:break-all"></ol>
+      <p id="pickNote" class="text-xs text-slate-500 mt-3"></p>
       <p data-en="The install guide (<code>PANDUAN_INSTALASI.md</code>) and a 33-page illustrated <a href=&quot;download/Panduan-Penggunaan-ASKER-IT-Asset.pdf&quot; class=&quot;text-brand-700 underline&quot;>user guide (PDF)</a> are included in the ZIP. Both are written in Indonesian." class="text-xs text-slate-500 mt-4">Panduan instalasi (<code>PANDUAN_INSTALASI.md</code>) dan <a href="download/Panduan-Penggunaan-ASKER-IT-Asset.pdf" class="text-brand-700 underline">panduan penggunaan bergambar 33 halaman (PDF)</a> sudah ada di dalam ZIP.</p>
     </div>
     <div class="bg-white rounded-2xl p-6 shadow-sm">
@@ -257,6 +260,56 @@
       })
       .catch(function () { /* API tidak terjangkau: penghitung tetap disembunyikan (atau angka terakhir yang tersimpan) */ });
   })();
+</script>
+<script>
+(function () {
+  var st = { os: 'windows', server: 'lokal', db: 'mariadb' };
+  var T = {
+    id: {
+      dl: 'Unduh ZIP di atas.',
+      win_lokal: ['Pasang XAMPP, ekstrak ZIP ke <code>C:\\xampp\\htdocs\\asker-it-asset</code>, jalankan Apache & MySQL.', 'Buka <code>http://localhost/asker-it-asset/</code>, pilih <b>Windows · Server lokal · {DB}</b>.', 'Database: host <code>localhost</code>, user <code>root</code>, password <b>kosong</b> (hapus isian otomatis browser).', 'Setelah instal: klik kanan <code>scripts\\pasang_jadwal_cctv.bat</code> → Run as administrator; pasang ffmpeg untuk video CCTV.'],
+      win_vps: ['Pasang XAMPP / IIS + PHP 8 + {DB} di Windows Server, salin folder aplikasi ke folder web.', 'Buka alamat server, pilih <b>Windows · VPS · {DB}</b>.', 'Database: isi akun admin {DB} (mis. root) dan centang <b>Buatkan user database baru</b>.', 'Setelah instal: jadwal cek CCTV dengan <code>scripts\\pasang_jadwal_cctv.bat</code>, buka port 80/443, pasang SSL. Jaringan kantor lewat VPN atau Agen Kantor.'],
+      lin_lokal: ['Pasang Apache/Nginx + PHP 8 + {DB}, mis. <code>sudo apt install apache2 {PKG} php php-mysql php-mbstring php-gd php-zip php-curl ffmpeg</code>.', 'Salin ke <code>/var/www/html/asker-it-asset</code> lalu <code>sudo chown -R www-data: /var/www/html/asker-it-asset</code>.', 'Buka alamat server, pilih <b>Linux · Server lokal · {DB}</b>, isi akun admin {DB} dan centang <b>Buatkan user database baru</b>.', 'Setelah instal: tambahkan cron <code>* * * * * php /var/www/html/asker-it-asset/cctv_check.php</code>.'],
+      lin_vps: ['Pasang Apache/Nginx + PHP 8 + {DB}, mis. <code>sudo apt install apache2 {PKG} php php-mysql php-mbstring php-gd php-zip php-curl ffmpeg</code>.', 'Salin ke <code>/var/www/html/asker-it-asset</code> lalu <code>sudo chown -R www-data: /var/www/html/asker-it-asset</code>.', 'Buka alamat VPS, pilih <b>Linux · VPS · {DB}</b>, isi akun admin {DB} dan centang <b>Buatkan user database baru</b>. Centang VPN bila VPS tersambung ke kantor.', 'Setelah instal: cron <code>* * * * * php /var/www/html/asker-it-asset/cctv_check.php</code>, HTTPS dengan certbot. Tanpa VPN: pakai Agen Kantor atau NVR lewat IP publik.'],
+      hosting: ['Panel hosting: pilih PHP 8.1+, aktifkan ekstensi pdo_mysql, mbstring, gd, zip, curl.', 'Buat database & user di panel (Hostinger: Databases → Management, cPanel: MySQL Database Wizard).', 'File Manager → <code>public_html</code> → upload ZIP → Extract, buka alamat aplikasi, pilih <b>Linux · Shared hosting · {DB}</b>.', 'Database: host <code>localhost</code>, nama & user <b>lengkap dengan awalan</b> (mis. <code>u123456789_aset</code>).', 'Setelah instal: aktifkan SSL, buat Cron Job (perintah ditampilkan installer), dan Agen Kantor bila butuh cek jaringan / NVR lokal.'],
+      note: { lokal: 'Semua fitur jalan langsung: ping & scan, NVR lokal, video RTSP.', vps: 'Video RTSP bisa (ffmpeg). Jaringan kantor lewat VPN atau Agen Kantor.', hosting: 'Live CCTV memakai snapshot. Cek & scan jaringan lewat Agen Kantor.' },
+      winHost: 'Shared hosting umumnya berbasis Linux; langkah di bawah berlaku untuk panel hosting.'
+    },
+    en: {
+      dl: 'Download the ZIP above.',
+      win_lokal: ['Install XAMPP, extract the ZIP into <code>C:\\xampp\\htdocs\\asker-it-asset</code>, start Apache & MySQL.', 'Open <code>http://localhost/asker-it-asset/</code> and pick <b>Windows · Local server · {DB}</b>.', 'Database: host <code>localhost</code>, user <code>root</code>, <b>empty</b> password (clear any browser autofill).', 'After install: right-click <code>scripts\\pasang_jadwal_cctv.bat</code> → Run as administrator; install ffmpeg for CCTV video.'],
+      win_vps: ['Install XAMPP / IIS + PHP 8 + {DB} on Windows Server and copy the app into the web folder.', 'Open the server address and pick <b>Windows · VPS · {DB}</b>.', 'Database: enter the {DB} admin account (e.g. root) and tick <b>Create a new database user</b>.', 'After install: schedule CCTV checks with <code>scripts\\pasang_jadwal_cctv.bat</code>, open ports 80/443, add SSL. Office network via VPN or the Office Agent.'],
+      lin_lokal: ['Install Apache/Nginx + PHP 8 + {DB}, e.g. <code>sudo apt install apache2 {PKG} php php-mysql php-mbstring php-gd php-zip php-curl ffmpeg</code>.', 'Copy to <code>/var/www/html/asker-it-asset</code> then <code>sudo chown -R www-data: /var/www/html/asker-it-asset</code>.', 'Open the server address, pick <b>Linux · Local server · {DB}</b>, enter the {DB} admin account and tick <b>Create a new database user</b>.', 'After install: add the cron <code>* * * * * php /var/www/html/asker-it-asset/cctv_check.php</code>.'],
+      lin_vps: ['Install Apache/Nginx + PHP 8 + {DB}, e.g. <code>sudo apt install apache2 {PKG} php php-mysql php-mbstring php-gd php-zip php-curl ffmpeg</code>.', 'Copy to <code>/var/www/html/asker-it-asset</code> then <code>sudo chown -R www-data: /var/www/html/asker-it-asset</code>.', 'Open the VPS address, pick <b>Linux · VPS · {DB}</b>, enter the {DB} admin account and tick <b>Create a new database user</b>. Tick VPN if the VPS reaches the office.', 'After install: cron <code>* * * * * php /var/www/html/asker-it-asset/cctv_check.php</code>, HTTPS with certbot. Without VPN: use the Office Agent or public-IP NVRs.'],
+      hosting: ['Hosting panel: choose PHP 8.1+, enable pdo_mysql, mbstring, gd, zip, curl.', 'Create the database & user in the panel (Hostinger: Databases → Management, cPanel: MySQL Database Wizard).', 'File Manager → <code>public_html</code> → upload the ZIP → Extract, open the app and pick <b>Linux · Shared hosting · {DB}</b>.', 'Database: host <code>localhost</code>, name & user <b>with their prefix</b> (e.g. <code>u123456789_aset</code>).', 'After install: enable SSL, add the Cron Job shown by the installer, and the Office Agent if you need network checks / local NVRs.'],
+      note: { lokal: 'Everything works directly: ping & scan, local NVRs, RTSP video.', vps: 'RTSP video works (ffmpeg). Office network via VPN or the Office Agent.', hosting: 'Live CCTV uses snapshots. Network check & scan via the Office Agent.' },
+      winHost: 'Shared hosting is usually Linux-based; the steps below apply to the hosting panel.'
+    }
+  };
+  function lang() { return document.documentElement.lang === 'en' ? 'en' : 'id'; }
+  function draw() {
+    var L = T[lang()], dbName = st.db === 'mariadb' ? 'MariaDB' : 'MySQL', pkg = st.db === 'mariadb' ? 'mariadb-server' : 'mysql-server';
+    var key = st.server === 'hosting' ? 'hosting' : (st.os === 'windows' ? 'win_' : 'lin_') + st.server;
+    var steps = [L.dl].concat(L[key]).map(function (x) { return '<li>' + x.split('{DB}').join(dbName).split('{PKG}').join(pkg) + '</li>'; });
+    document.getElementById('pickSteps').innerHTML = steps.join('');
+    document.getElementById('pickNote').textContent = L.note[st.server] + (st.server === 'hosting' && st.os === 'windows' ? ' ' + L.winHost : '');
+    Array.prototype.forEach.call(document.querySelectorAll('#pick [data-group]'), function (g) {
+      Array.prototype.forEach.call(g.querySelectorAll('button'), function (b) {
+        var on = st[g.getAttribute('data-group')] === b.getAttribute('data-v');
+        b.className = 'px-3 py-1.5 rounded-lg border text-sm font-medium ' + (on ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50');
+        b.setAttribute('aria-pressed', String(on));
+      });
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#pick [data-group] button'), function (b) {
+    b.addEventListener('click', function () {
+      st[b.parentNode.getAttribute('data-group')] = b.getAttribute('data-v');
+      draw();
+    });
+  });
+  new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+  draw();
+})();
 </script>
 </body>
 </html>
