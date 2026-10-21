@@ -91,13 +91,45 @@
       <h2 data-en="Requirements and notes" class="text-xl font-bold mb-3">Kebutuhan dan catatan</h2>
       <ul class="list-disc pl-5 space-y-2 text-sm text-slate-700">
         <li data-en="PHP 8.0 or newer with the <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, <code>zip</code>, and <code>curl</code> extensions. ffmpeg is only needed for CCTV live preview.">PHP 8.0 atau lebih baru dengan ekstensi <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, <code>zip</code>, <code>curl</code>. ffmpeg hanya dibutuhkan untuk live preview CCTV.</li>
-        <li data-en="MySQL or MariaDB. XAMPP is enough.">MySQL atau MariaDB. XAMPP sudah cukup.</li>
+        <li data-en="MySQL or MariaDB. XAMPP is enough, or use web hosting (see <a href=&quot;#hosting&quot; class=&quot;text-brand-700 underline&quot;>Install on web hosting</a>).">MySQL atau MariaDB. XAMPP sudah cukup, atau pakai hosting (lihat <a href="#hosting" class="text-brand-700 underline">Pasang di hosting</a>).</li>
         <li data-en="The Network menu runs <code>ping</code> and <code>arp</code> on the server through PHP <code>proc_open</code>, only when you press the button. See <code>PANDUAN_JARINGAN.md</code> in the ZIP.">Menu Jaringan menjalankan <code>ping</code> dan <code>arp</code> di server lewat <code>proc_open</code> PHP, hanya saat tombol ditekan. Lihat <code>PANDUAN_JARINGAN.md</code> di dalam ZIP.</li>
         <li data-en="Libraries are bundled in the ZIP, so <code>composer install</code> is not needed.">Pustaka pendukung sudah ada di dalam ZIP, tidak perlu <code>composer install</code>.</li>
-        <li data-en="Designed for an <b>internal office network</b>. Do not expose it to the internet without extra protection.">Dirancang untuk <b>jaringan internal kantor</b>. Jangan dibuka langsung ke internet tanpa pengamanan tambahan.</li>
+        <li data-en="Designed for an <b>internal office network</b>. If you put it on web hosting, always use HTTPS and strong passwords.">Dirancang untuk <b>jaringan internal kantor</b>. Jika dipasang di hosting, wajib pakai HTTPS dan password yang kuat.</li>
         <li data-en="PC usernames and passwords in asset records are stored as plain text (IT reference data). Consider this before filling them in.">Username dan password PC pada data aset disimpan sebagai teks biasa (data referensi IT). Pertimbangkan sebelum mengisinya.</li>
         <li data-en="<a href=&quot;LICENSE&quot; class=&quot;text-brand-700 underline&quot;>MIT</a> licence: free to use, change, and share.">Lisensi <a href="LICENSE" class="text-brand-700 underline">MIT</a>: bebas dipakai, diubah, dan dibagikan.</li>
       </ul>
+    </div>
+  </section>
+
+  <section id="hosting" class="bg-white rounded-2xl p-6 shadow-sm [&_code]:bg-slate-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:break-all">
+    <h2 data-en="Install on web hosting (Hostinger, cPanel, and similar)" class="text-xl font-bold mb-1">Pasang di hosting (Hostinger, cPanel, dan sejenisnya)</h2>
+    <p data-en="Install straight on shared hosting so the app can be opened from anywhere. No SSH or Composer is needed." class="text-sm text-slate-500 mb-4">Pasang langsung di shared hosting supaya aplikasi bisa dibuka dari mana saja. Tidak perlu SSH atau Composer.</p>
+    <div class="grid gap-6 lg:grid-cols-2">
+      <ol class="list-decimal pl-5 space-y-2 text-sm text-slate-700">
+        <li data-en="<b>Set PHP.</b> In the hosting panel (Hostinger: hPanel &rarr; Advanced &rarr; PHP Configuration; cPanel: <i>Select PHP Version</i>), choose <b>PHP 8.1 or newer</b> and make sure <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, <code>zip</code>, and <code>curl</code> are enabled. Recommended: <code>upload_max_filesize</code> and <code>post_max_size</code> = <code>64M</code>.">
+          <b>Atur PHP.</b> Di panel hosting (Hostinger: hPanel &rarr; Advanced &rarr; PHP Configuration; cPanel: <i>Select PHP Version</i>), pilih <b>PHP 8.1 atau lebih baru</b> dan pastikan <code>pdo_mysql</code>, <code>mbstring</code>, <code>gd</code>, <code>zip</code>, <code>curl</code> aktif. Disarankan <code>upload_max_filesize</code> dan <code>post_max_size</code> = <code>64M</code>.</li>
+        <li data-en="<b>Create the database first.</b> Hosting has no <code>root</code> user, so the installer cannot create it. Hostinger: Databases &rarr; Management. cPanel: <i>MySQL Database Wizard</i> (tick <b>ALL PRIVILEGES</b>). Note the database name, user, and password, which usually carry a prefix such as <code>u123456789_aset</code>.">
+          <b>Buat database dulu.</b> Di hosting tidak ada user <code>root</code>, jadi installer tidak bisa membuatnya sendiri. Hostinger: Databases &rarr; Management. cPanel: <i>MySQL Database Wizard</i> (centang <b>ALL PRIVILEGES</b>). Catat nama database, user, dan password, yang biasanya berawalan seperti <code>u123456789_aset</code>.</li>
+        <li data-en="<b>Upload and extract.</b> File Manager &rarr; <code>public_html</code> &rarr; upload <code>asker-it-asset.zip</code> &rarr; right-click &rarr; <b>Extract</b>. The app then opens at <code>https://yourdomain.com/asker-it-asset/</code>. To use the domain root or a subdomain, move the <b>contents</b> of the <code>asker-it-asset</code> folder there.">
+          <b>Upload dan ekstrak.</b> File Manager &rarr; <code>public_html</code> &rarr; upload <code>asker-it-asset.zip</code> &rarr; klik kanan &rarr; <b>Extract</b>. Aplikasi dibuka di <code>https://domainanda.com/asker-it-asset/</code>. Agar langsung di domain utama atau subdomain, pindahkan <b>isi</b> folder <code>asker-it-asset</code> ke root domain tersebut.</li>
+        <li data-en="<b>Run the installer.</b> Open the app address, and the installer appears. All checks must be green; if a folder is not writable, set <code>config/</code>, <code>includes/data/</code>, and <code>assets/uploads/</code> to <code>755</code>. Enter host <code>localhost</code> and the database name and user <b>including their prefix</b>, then create the first admin and click <b>Instal sekarang</b>.">
+          <b>Jalankan installer.</b> Buka alamat aplikasi, lalu halaman instalasi muncul. Semua cek harus hijau; jika ada folder yang belum bisa ditulis, ubah permission <code>config/</code>, <code>includes/data/</code>, dan <code>assets/uploads/</code> menjadi <code>755</code>. Isi host <code>localhost</code>, nama database dan user <b>lengkap dengan awalannya</b>, lalu buat admin pertama dan klik <b>Instal sekarang</b>.</li>
+        <li data-en="<b>Secure it.</b> Delete <code>install.php</code> and enable SSL (HTTPS) in the hosting panel. HTTPS is also needed for QR scanning with a phone camera.">
+          <b>Amankan.</b> Hapus <code>install.php</code> dan aktifkan SSL (HTTPS) di panel hosting. HTTPS juga diperlukan agar scan QR bisa memakai kamera HP.</li>
+      </ol>
+      <div class="space-y-4 text-sm text-slate-700">
+        <div class="rounded-xl bg-amber-50 border border-amber-200 p-4">
+          <p data-en="Features that do not work on hosting" class="font-semibold text-amber-900 mb-2">Fitur yang tidak berjalan di hosting</p>
+          <p data-en="A hosting server lives on the internet, so it cannot reach devices on your office LAN (addresses like <code>192.168.x.x</code>):" class="mb-2">Server hosting berada di internet, jadi tidak bisa menjangkau perangkat di jaringan lokal kantor (alamat seperti <code>192.168.x.x</code>):</p>
+          <ul class="list-disc pl-5 space-y-1">
+            <li data-en="CCTV monitoring, RTSP test, and live preview.">Monitoring CCTV, Tes RTSP, dan live preview.</li>
+            <li data-en="The Network menu (ping check and subnet scan).">Menu Jaringan (cek ping dan scan subnet).</li>
+            <li data-en="The Windows <code>.bat</code> scripts in the <code>scripts/</code> folder.">Script Windows <code>.bat</code> di folder <code>scripts/</code>.</li>
+          </ul>
+          <p data-en="Every other menu works normally. If you still need CCTV and network checks, run a second installation on a local office server (XAMPP) for those features." class="mt-2">Menu lainnya berjalan normal. Jika CCTV dan cek jaringan tetap dibutuhkan, pasang satu instalasi lagi di server lokal kantor (XAMPP) khusus untuk fitur tersebut.</p>
+        </div>
+        <p data-en="<b>Moving from a local server?</b> Before running the installer, export the old database from local phpMyAdmin and import the <code>.sql</code> file into the new database through the hosting phpMyAdmin. The installer will detect the existing admin, so just log in with your old account. Also copy <code>assets/uploads/</code> and <code>includes/data/</code> to keep the logo, letterhead, and photos."><b>Pindah dari server lokal?</b> Sebelum menjalankan installer, ekspor database lama dari phpMyAdmin lokal, lalu impor file <code>.sql</code>-nya ke database baru lewat phpMyAdmin hosting. Installer akan mendeteksi admin yang sudah ada, jadi cukup login dengan akun lama. Salin juga <code>assets/uploads/</code> dan <code>includes/data/</code> agar logo, kop surat, dan foto ikut pindah.</p>
+      </div>
     </div>
   </section>
 

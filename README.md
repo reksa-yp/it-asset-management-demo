@@ -5,7 +5,7 @@
 🔗 **Live demo:** <https://reksa-yp.github.io/it-asset-management-demo/>
 
 ⬇️ **Unduh aplikasi (open source, lisensi MIT):** <https://reksa-yp.github.io/it-asset-management-demo/unduh.html>
-— atau langsung file ZIP-nya: [`asker-it-asset.zip`](https://github.com/reksa-yp/it-asset-management-demo/releases/latest/download/asker-it-asset.zip) (versi terbaru dari halaman [Releases](https://github.com/reksa-yp/it-asset-management-demo/releases)) (PHP + MySQL, siap dipasang di XAMPP).
+— atau langsung file ZIP-nya: [`asker-it-asset.zip`](https://github.com/reksa-yp/it-asset-management-demo/releases/latest/download/asker-it-asset.zip) (versi terbaru dari halaman [Releases](https://github.com/reksa-yp/it-asset-management-demo/releases)) (PHP + MySQL, siap dipasang di XAMPP atau hosting seperti Hostinger/cPanel).
 
 📘 **Panduan penggunaan (PDF, 33 halaman):** [`download/Panduan-Penggunaan-ASKER-IT-Asset.pdf`](download/Panduan-Penggunaan-ASKER-IT-Asset.pdf) — fungsi setiap menu dan cara menggunakannya. File ini juga ada di dalam ZIP.
 
@@ -73,6 +73,26 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
 - **Signature Email** — membuat gambar signature email (JPG). Nama, departemen, dan jabatan terisi otomatis;
   logo, telepon, dan alamat perusahaan diatur admin, dan **warna signature otomatis mengikuti warna logo**.
 - **Menu akun di ikon user (pojok kanan atas)** — menampilkan jabatan, departement, email, dan **Ganti Password** login.
+
+## Cara Memasang
+
+**Di komputer/server lokal (XAMPP):** ekstrak ZIP ke `C:\xampp\htdocs\asker-it-asset`, jalankan Apache & MySQL,
+buka `http://localhost/asker-it-asset/`, isi formulir instalasi, lalu hapus `install.php`.
+
+**Langsung di hosting (Hostinger, cPanel, dan sejenisnya):**
+
+1. Di panel hosting, pilih **PHP 8.1+** dan aktifkan ekstensi `pdo_mysql`, `mbstring`, `gd`, `zip`, `curl`.
+2. **Buat database dulu** (Hostinger: Databases → Management; cPanel: *MySQL Database Wizard*, centang ALL PRIVILEGES).
+   Catat nama database, user, dan password. Biasanya ada awalan, misalnya `u123456789_aset`.
+3. File Manager → `public_html` → upload `asker-it-asset.zip` → **Extract**.
+   Untuk dipasang di domain utama atau subdomain, pindahkan *isi* folder `asker-it-asset` ke root domain itu.
+4. Buka `https://domainanda.com/asker-it-asset/`, lalu isi host `localhost`, nama database dan user **lengkap dengan awalannya**,
+   dan akun admin pertama → **Instal sekarang**. Jika ada folder yang belum bisa ditulis, set `config/`, `includes/data/`, `assets/uploads/` ke `755`.
+5. Hapus `install.php` dan aktifkan SSL/HTTPS (dibutuhkan juga untuk scan QR dengan kamera HP).
+
+> Di hosting, **monitoring CCTV / live preview**, **menu Jaringan (ping & scan subnet)**, dan script `.bat` tidak berjalan,
+> karena server hosting tidak bisa menjangkau perangkat di LAN kantor. Menu lainnya berjalan normal.
+> Panduan lengkap ada di `PANDUAN_INSTALASI.md` di dalam ZIP.
 
 ## Teknologi
 
