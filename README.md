@@ -90,8 +90,9 @@ buka `http://localhost/asker-it-asset/`, isi formulir instalasi, lalu hapus `ins
    dan akun admin pertama → **Instal sekarang**. Jika ada folder yang belum bisa ditulis, set `config/`, `includes/data/`, `assets/uploads/` ke `755`.
 5. Hapus `install.php` dan aktifkan SSL/HTTPS (dibutuhkan juga untuk scan QR dengan kamera HP).
 
-> Di hosting, **monitoring CCTV / live preview**, **menu Jaringan (ping & scan subnet)**, dan script `.bat` tidak berjalan,
-> karena server hosting tidak bisa menjangkau perangkat di LAN kantor. Menu lainnya berjalan normal.
+> Di hosting, aplikasi mendeteksi lokasi server secara otomatis. NVR bisa dihubungkan lewat **IP publik / DDNS**, **Cloudflare Tunnel**,
+> atau **Agen Kantor** (script kecil di 1 PC kantor, tanpa IP publik / port forwarding / VPN); live preview memakai snapshot bila tidak ada ffmpeg,
+> dan cek otomatis memakai Cron Job. Tab Cek & Scan di menu Jaringan muncul bila Agen Kantor aktif.
 > Panduan lengkap ada di `PANDUAN_INSTALASI.md` di dalam ZIP.
 
 ## Teknologi

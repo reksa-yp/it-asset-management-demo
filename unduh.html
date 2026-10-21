@@ -118,15 +118,19 @@
           <b>Amankan.</b> Hapus <code>install.php</code> dan aktifkan SSL (HTTPS) di panel hosting. HTTPS juga diperlukan agar scan QR bisa memakai kamera HP.</li>
       </ol>
       <div class="space-y-4 text-sm text-slate-700">
-        <div class="rounded-xl bg-amber-50 border border-amber-200 p-4">
-          <p data-en="Features that do not work on hosting" class="font-semibold text-amber-900 mb-2">Fitur yang tidak berjalan di hosting</p>
-          <p data-en="A hosting server lives on the internet, so it cannot reach devices on your office LAN (addresses like <code>192.168.x.x</code>):" class="mb-2">Server hosting berada di internet, jadi tidak bisa menjangkau perangkat di jaringan lokal kantor (alamat seperti <code>192.168.x.x</code>):</p>
+        <div class="rounded-xl bg-blue-50 border border-blue-100 p-4">
+          <p data-en="CCTV and the Network menu on hosting" class="font-semibold text-slate-900 mb-2">CCTV dan menu Jaringan di hosting</p>
+          <p data-en="A hosting server cannot reach your office LAN directly (addresses like <code>192.168.x.x</code>). The app detects this and offers:" class="mb-2">Server hosting tidak bisa langsung menjangkau jaringan kantor (alamat seperti <code>192.168.x.x</code>). Aplikasi mendeteksinya dan menyediakan:</p>
           <ul class="list-disc pl-5 space-y-1">
-            <li data-en="CCTV monitoring, RTSP test, and live preview.">Monitoring CCTV, Tes RTSP, dan live preview.</li>
-            <li data-en="The Network menu (ping check and subnet scan).">Menu Jaringan (cek ping dan scan subnet).</li>
-            <li data-en="The Windows <code>.bat</code> scripts in the <code>scripts/</code> folder.">Script Windows <code>.bat</code> di folder <code>scripts/</code>.</li>
+            <li data-en="<b>NVR connection mode</b> per NVR: local network, <b>public IP / DDNS</b> (port forwarding), <b>Cloudflare Tunnel</b>, or <b>Office Agent</b>. RTSP and snapshot addresses can be entered manually for any brand."><b>Cara terhubung NVR</b> per NVR: jaringan lokal, <b>IP publik / DDNS</b> (port forwarding), <b>Cloudflare Tunnel</b>, atau <b>Agen Kantor</b>. Alamat RTSP & snapshot bisa diisi manual untuk merek apa pun.</li>
+            <li data-en="<b>Live preview</b> switches to snapshots refreshed every 1–2 s when the server has no ffmpeg."><b>Live preview</b> otomatis memakai snapshot (±1–2 detik sekali) bila server tidak punya ffmpeg.</li>
+            <li data-en="<b>Automatic checks</b> via a hosting Cron Job (command shown in CCTV &rarr; Settings &rarr; 7)."><b>Cek otomatis</b> lewat Cron Job hosting (perintah ada di CCTV &rarr; Pengaturan &rarr; 7).</li>
+            <li data-en="<b>Network menu</b>: Topology &amp; Connections always work; Check &amp; Scan appear when the Office Agent is on."><b>Menu Jaringan</b>: Topologi &amp; Data koneksi tetap jalan; Cek &amp; Scan muncul bila Agen Kantor aktif.</li>
           </ul>
-          <p data-en="Every other menu works normally. If you still need CCTV and network checks, run a second installation on a local office server (XAMPP) for those features." class="mt-2">Menu lainnya berjalan normal. Jika CCTV dan cek jaringan tetap dibutuhkan, pasang satu instalasi lagi di server lokal kantor (XAMPP) khusus untuk fitur tersebut.</p>
+        </div>
+        <div class="rounded-xl bg-violet-50 border border-violet-200 p-4">
+          <p data-en="No public IP? Use the Office Agent" class="font-semibold text-slate-900 mb-2">Tidak punya IP publik? Pakai Agen Kantor</p>
+          <p data-en="A small script on one always-on office Windows PC reads the NVRs, takes snapshots, runs ping &amp; scans, and sends the results to the hosting over HTTPS. Outgoing connections only: no public IP, port forwarding, or VPN. Download it from the <b>Office Agent</b> menu, run <code>jalankan_agen.bat</code> to test, then <code>pasang_agen.bat</code> as administrator.">Script kecil di 1 PC Windows kantor yang selalu menyala: membaca NVR, mengambil snapshot, menjalankan ping &amp; scan, lalu mengirim hasilnya ke hosting lewat HTTPS. Hanya koneksi keluar: tanpa IP publik, port forwarding, maupun VPN. Unduh dari menu <b>Agen Kantor</b>, uji dengan <code>jalankan_agen.bat</code>, lalu jalankan <code>pasang_agen.bat</code> sebagai administrator.</p>
         </div>
         <p data-en="<b>Moving from a local server?</b> Before running the installer, export the old database from local phpMyAdmin and import the <code>.sql</code> file into the new database through the hosting phpMyAdmin. The installer will detect the existing admin, so just log in with your old account. Also copy <code>assets/uploads/</code> and <code>includes/data/</code> to keep the logo, letterhead, and photos."><b>Pindah dari server lokal?</b> Sebelum menjalankan installer, ekspor database lama dari phpMyAdmin lokal, lalu impor file <code>.sql</code>-nya ke database baru lewat phpMyAdmin hosting. Installer akan mendeteksi admin yang sudah ada, jadi cukup login dengan akun lama. Salin juga <code>assets/uploads/</code> dan <code>includes/data/</code> agar logo, kop surat, dan foto ikut pindah.</p>
       </div>
