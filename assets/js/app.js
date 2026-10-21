@@ -3776,5 +3776,176 @@ ${isAdmin() ? `<td class="py-2 px-3 whitespace-nowrap text-right"><button data-e
   };
 
   // ------------------------------------------------------------------
+  // Lokasi server, Agen Kantor & CCTV lewat internet (demo)
+  // Di aplikasi asli: menu Agen Kantor, CCTV > Pengaturan > 1 (Cara terhubung), menu Jaringan menyesuaikan lokasi server.
+  // ------------------------------------------------------------------
+  ICONS.globe = '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>';
+  const agentSeed = () => ({ server: 'hosting', enabled: true, url: 'https://aset.perusahaan-demo.com/' });
+  if (!db.agent) { db.agent = agentSeed(); save(); }
+  const _origReset4 = resetDemo;
+  resetDemo = function () { _origReset4(); db.agent = agentSeed(); save(); };
+  const AG = () => db.agent;
+  const lanMode = () => (AG().server !== 'hosting' ? 'local' : (AG().enabled ? 'agent' : 'none'));
+  const CONN = {
+    lokal: ['Jaringan lokal', 'Server di kantor menjangkau IP lokal NVR.', 'bg-slate-100 text-slate-700'],
+    publik: ['IP publik / DDNS', 'Lewat internet: IP publik ISP atau DDNS + port forwarding di router.', 'bg-blue-50 text-blue-800'],
+    tunnel: ['Cloudflare Tunnel', 'Web NVR lewat hostname HTTPS Cloudflare. Tanpa IP publik. RTSP tidak didukung.', 'bg-orange-50 text-orange-800'],
+    agen: ['Agen Kantor', 'PC kantor menjalankan Agen Kantor, membaca NVR lalu mengirim hasilnya ke server.', 'bg-violet-50 text-violet-800'],
+  };
+  function nvrConnFix() {
+    C().nvrs.forEach((n) => {
+      if (n.conn) return;
+      Object.assign(n, n.id === 1
+        ? { conn: 'agen', addr: n.ip, port: 80, rtsp_port: 554, user: 'viewer', live: 'auto', rtsp_tpl: '', snap_tpl: '' }
+        : { conn: 'publik', addr: '103.147.92.15', port: 8080, rtsp_port: 8554, user: 'viewer', live: 'auto', rtsp_tpl: '', snap_tpl: '' });
+    });
+  }
+  nvrConnFix(); save();
+  const nvrHost = (n) => String(n.addr || '').replace(/^[a-z]+:\/\//i, '').replace(/\/.*$/, '').replace(/:\d+$/, '') || 'IP';
+  const rtspOk = (n) => (n.conn === 'lokal' || n.conn === 'publik') && (n.brand !== 'Lain' || n.rtsp_tpl);
+  function nvrUrls(n) {
+    const fill = (t, port) => t.split('{user}').join(encodeURIComponent(n.user || '')).split('{pass}').join('****').split('{host}').join(nvrHost(n)).split('{port}').join(port).split('{ch}').join('1').split('{ch0}').join('0').split('{ch2}').join('01');
+    const https = n.conn === 'tunnel' || +n.port === 443;
+    const base = /^https?:\/\//i.test(n.addr || '') ? n.addr.replace(/\/$/, '') : (https ? 'https://' : 'http://') + nvrHost(n) + ((+n.port === 80 && !https) || (+n.port === 443 && https) ? '' : ':' + n.port);
+    const out = [];
+    if (rtspOk(n)) {
+      const auto = n.brand === 'Dahua' ? 'rtsp://{user}:{pass}@{host}:{port}/cam/realmonitor?channel={ch}&subtype=1' : (n.brand === 'Hikvision' ? 'rtsp://{user}:{pass}@{host}:{port}/Streaming/Channels/{ch}02' : '');
+      if (n.rtsp_tpl || auto) out.push('Alamat RTSP channel 1: ' + fill(n.rtsp_tpl || auto, n.rtsp_port || 554));
+    } else out.push('Live memakai snapshot HTTP (RTSP tidak tersedia untuk cara ini).');
+    const sAuto = n.brand === 'Dahua' ? '/cgi-bin/snapshot.cgi?channel={ch}' : (n.brand === 'Hikvision' ? '/ISAPI/Streaming/channels/{ch}01/picture' : '');
+    if (n.snap_tpl || sAuto) { const u = fill(n.snap_tpl || sAuto, n.port || 80); out.push('Snapshot channel 1: ' + (/^https?:\/\//i.test(u) ? u : base + u)); }
+    if (n.brand === 'Lain' && !n.rtsp_tpl && !n.snap_tpl) out.push('Merk lain: isi alamat manual untuk live preview.');
+    return { base, lines: out };
+  }
+  const liveKind = (n) => (n.live !== 'snap' && rtspOk(n) && AG().server !== 'hosting' ? 'Live: video RTSP' : 'Live: snapshot');
+
+  function nvrCard() {
+    const rows = C().nvrs.map((n) => `<tr class="border-t"><td class="px-3 py-2 font-medium">${esc(n.name)}<div class="text-xs text-slate-500">${esc(n.brand)} · ${esc(n.location)}</div></td>
+      <td class="px-3 py-2 text-xs"><span class="font-mono">${esc(n.conn === 'agen' ? n.addr + ':' + n.port : nvrUrls(n).base)}</span><div class="mt-0.5"><span class="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${CONN[n.conn][2]}">${CONN[n.conn][0]}</span>
+      ${n.conn === 'lokal' && AG().server === 'hosting' ? '<span class="text-red-700"> tidak terjangkau dari hosting</span>' : ''}</div></td>
+      <td class="px-3 py-2 text-xs">${rtspOk(n) ? esc(n.rtsp_port) + (n.rtsp_tpl ? ' (manual)' : '') : '-'}<div class="text-slate-500">${liveKind(n)}</div></td>
+      <td class="px-3 py-2 text-right whitespace-nowrap"><button data-nvrtest="${n.id}" class="${btnGhost} !px-3 !py-1.5">Tes gambar</button> <button data-nvredit="${n.id}" class="${btnPrimary} !px-3 !py-1.5">${icon('pencil')} Ubah</button></td></tr>`).join('');
+    return `<div class="bg-white rounded-xl shadow-sm p-5 mb-4">
+  <p class="font-semibold text-slate-700 mb-1">NVR / DVR &amp; cara terhubung</p>
+  <p class="text-xs text-slate-500 mb-3">Server demo: <b>${AG().server === 'hosting' ? 'hosting' : 'jaringan kantor'}</b> (ubah di menu <a href="#/agent" class="text-blue-600 underline">Agen Kantor</a>). Alamat, port HTTP/RTSP, dan alamat RTSP/snapshot manual bisa diisi sendiri, termasuk IP publik dari ISP.</p>
+  <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500 text-xs"><tr><th class="text-left px-3 py-2">Nama</th><th class="text-left px-3 py-2">Alamat</th><th class="text-left px-3 py-2">RTSP</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+</div>`;
+  }
+  function nvrForm(n) {
+    openModal('Ubah NVR: ' + n.name, `<form id="nvrF" class="space-y-3 text-sm">
+      <div class="grid sm:grid-cols-2 gap-2">${Object.entries(CONN).map(([k, [l, d]]) => `<label class="flex gap-2 items-start rounded-lg border border-slate-200 p-2.5 cursor-pointer has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50"><input type="radio" name="conn" value="${k}" ${n.conn === k ? 'checked' : ''} class="mt-0.5"><span><b class="text-slate-800">${l}</b><span class="block text-xs text-slate-600">${d}</span></span></label>`).join('')}</div>
+      <div class="grid sm:grid-cols-2 gap-3">
+        ${field('Merk', `<select name="brand" class="${inputCls}">${options(['Hikvision', 'Dahua', 'Lain'].map((v) => ({ value: v, label: v === 'Lain' ? 'Merk lain (alamat manual)' : v })), n.brand)}</select>`)}
+        ${field('<span id="nfHostL">Alamat NVR</span>', `<input name="addr" value="${esc(n.addr)}" class="${inputCls} font-mono">`)}
+        ${field('<span id="nfPortL">Port HTTP</span>', `<input name="port" type="number" value="${esc(n.port)}" class="${inputCls}">`)}
+        ${field('Port RTSP', `<input name="rtsp_port" type="number" value="${esc(n.rtsp_port)}" class="${inputCls}">`, 'nfRtsp')}
+        ${field('Username NVR', `<input name="user" value="${esc(n.user)}" class="${inputCls}">`)}
+        ${field('Tampilan live', `<select name="live" class="${inputCls}">${options([{ value: 'auto', label: 'Otomatis' }, { value: 'snap', label: 'Snapshot' }, { value: 'video', label: 'Video RTSP (ffmpeg)' }], n.live)}</select>`)}
+      </div>
+      <p id="nfHelp" class="text-xs text-slate-500"></p>
+      <details class="rounded-lg border border-slate-200 p-3" ${n.rtsp_tpl || n.snap_tpl ? 'open' : ''}><summary class="cursor-pointer font-medium text-slate-700">Alamat manual (opsional)</summary>
+        <div class="space-y-2 mt-2">${field('Alamat RTSP manual', `<input name="rtsp_tpl" value="${esc(n.rtsp_tpl)}" placeholder="rtsp://{user}:{pass}@{host}:{port}/Streaming/Channels/{ch}02" class="${inputCls} font-mono text-xs">`, 'nfRtspTpl')}
+        ${field('Alamat snapshot manual', `<input name="snap_tpl" value="${esc(n.snap_tpl)}" placeholder="/cgi-bin/snapshot.cgi?channel={ch}" class="${inputCls} font-mono text-xs">`)}
+        <p class="text-xs text-slate-500">Kode: {user} {pass} {host} {port} {ch} {ch0} {ch2}</p></div></details>
+      <pre id="nfPrev" class="rounded-lg bg-slate-900 text-slate-100 px-3 py-2 text-xs whitespace-pre-wrap break-all"></pre>
+      <div class="flex justify-end"><button class="${btnPrimary}">${icon('check')} Simpan NVR</button></div></form>`, {
+      wide: true,
+      onMount: (w) => {
+        const f = $('#nvrF', w);
+        const HOST = { lokal: ['IP lokal NVR', 'Server harus berada di jaringan kantor.'], publik: ['IP publik atau nama DDNS', 'Port = port luar yang diteruskan router ke NVR (port forwarding).'], tunnel: ['Hostname Cloudflare Tunnel', 'Public Hostname diarahkan ke http://IP-NVR:80. Port 443.'], agen: ['IP lokal NVR (dibaca Agen Kantor)', 'Server tidak menghubungi NVR langsung; Agen Kantor di PC kantor yang membacanya.'] };
+        const cur = () => Object.assign({}, n, formData(f));
+        const upd = () => {
+          const x = cur(), ok = x.conn === 'lokal' || x.conn === 'publik';
+          $('#nfHostL', w).textContent = HOST[x.conn][0]; $('#nfHelp', w).textContent = HOST[x.conn][1];
+          $('#nfPortL', w).textContent = x.conn === 'tunnel' ? 'Port HTTPS' : (x.conn === 'publik' ? 'Port HTTP (luar)' : 'Port HTTP');
+          $('.nfRtsp', w).style.display = ok ? '' : 'none'; $('.nfRtspTpl', w).style.display = ok ? '' : 'none';
+          $('#nfPrev', w).textContent = nvrUrls(x).lines.join('\n');
+        };
+        f.addEventListener('input', upd);
+        f.addEventListener('change', (e) => { if (e.target.name === 'conn') { const p = f.querySelector('[name=port]'); if (e.target.value === 'tunnel' && p.value === '80') p.value = '443'; if (e.target.value !== 'tunnel' && p.value === '443') p.value = '80'; } upd(); });
+        upd();
+        f.onsubmit = (e) => {
+          e.preventDefault(); const d = formData(f);
+          if (d.rtsp_tpl && !/^rtsps?:\/\//i.test(d.rtsp_tpl)) { toast('Alamat RTSP manual harus diawali rtsp://', false); return; }
+          Object.assign(n, { conn: d.conn, brand: d.brand, addr: d.addr.trim(), port: +d.port || 80, rtsp_port: +d.rtsp_port || 554, user: d.user.trim(), live: d.live, rtsp_tpl: d.rtsp_tpl.trim(), snap_tpl: d.snap_tpl.trim() });
+          save(); closeModal(); render();
+          toast('NVR disimpan.' + (d.conn === 'lokal' && AG().server === 'hosting' ? ' Perhatian: server di hosting, IP lokal tidak terjangkau.' : (d.conn === 'agen' && !AG().enabled ? ' Aktifkan Agen Kantor dulu.' : '')), !(d.conn === 'lokal' && AG().server === 'hosting'));
+        };
+      },
+    });
+  }
+  const _cctvSettingsOrig = cctvSettings;
+  cctvSettings = function () { return nvrCard() + _cctvSettingsOrig(); };
+  const _cctvBindOrig = PAGES.cctv.bind;
+  PAGES.cctv.bind = function () {
+    _cctvBindOrig.call(this);
+    if (cctvUi.tab !== 'settings') return;
+    $$('[data-nvredit]').forEach((b) => (b.onclick = () => nvrForm(C().nvrs.find((n) => n.id === +b.dataset.nvredit))));
+    $$('[data-nvrtest]').forEach((b) => (b.onclick = () => {
+      const n = C().nvrs.find((x) => x.id === +b.dataset.nvrtest);
+      if (n.conn === 'lokal' && AG().server === 'hosting') { toast(n.name + ': IP lokal tidak bisa dijangkau dari hosting. Ubah Cara terhubung.', false); return; }
+      if (n.conn === 'agen' && !AG().enabled) { toast(n.name + ': Agen Kantor belum diaktifkan.', false); return; }
+      toast(`${n.name} ch 1 — gambar berhasil diambil (${liveKind(n) === 'Live: video RTSP' ? 'RTSP/ffmpeg' : 'snapshot HTTP'}${n.conn === 'agen' ? ', via Agen Kantor' : ''}). (simulasi demo)`);
+    }));
+  };
+
+  // Menu Agen Kantor
+  let agentTimer = null;
+  PAGES.agent = {
+    render() {
+      const a = AG(), on = a.enabled;
+      const lm = lanMode();
+      const tiles = [['Cek & scan jaringan', lm === 'local' ? 'Langsung dari server' : (lm === 'agent' ? 'Lewat Agen Kantor' : 'Disembunyikan (butuh agen)')], ['NVR ber-IP lokal', a.server === 'hosting' ? 'Lewat agen / IP publik / tunnel' : 'Langsung'], ['Video live RTSP', a.server === 'hosting' ? 'Tidak ada ffmpeg: snapshot' : 'ffmpeg tersedia'], ['Cek CCTV terjadwal', on ? 'Dipicu Agen Kantor' : (a.server === 'hosting' ? 'Cron Job hosting' : 'Task Scheduler Windows')]];
+      return `${demoNote('Demo: status agen disimulasikan. Di aplikasi asli, agen adalah script kecil di 1 PC kantor yang membaca NVR, mengambil snapshot, menjalankan ping & scan, lalu mengirim hasilnya ke server lewat HTTPS (tanpa IP publik / port forwarding / VPN).')}
+<div class="bg-white rounded-xl shadow-sm p-5 mb-4">
+  <p class="font-semibold text-slate-800 mb-1">1. Lokasi server</p><p class="text-xs text-slate-500 mb-3">Dipilih saat instalasi (Windows/Linux · server lokal/VPS/hosting · MySQL/MariaDB), bisa diubah di sini.</p>
+  <div class="grid sm:grid-cols-2 gap-2 text-sm">${[['office', 'Jaringan kantor', 'XAMPP / server lokal / VPS ber-VPN. Ping & IP lokal dijangkau langsung.'], ['hosting', 'Hosting / internet', 'Hostinger, cPanel, VPS tanpa VPN. IP lokal kantor lewat Agen Kantor.']].map(([k, l, d]) => `<label class="flex gap-2 items-start rounded-lg border border-slate-200 p-3 cursor-pointer has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50"><input type="radio" name="agSrv" value="${k}" ${a.server === k ? 'checked' : ''} class="mt-0.5"><span><b class="text-slate-800">${l}</b><span class="block text-xs text-slate-600">${d}</span></span></label>`).join('')}</div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4 text-sm">${tiles.map(([l, v]) => `<div class="rounded-lg border border-slate-200 p-3"><p class="text-xs text-slate-500">${l}</p><p class="font-medium text-slate-800">${v}</p></div>`).join('')}</div>
+</div>
+<div class="bg-white rounded-xl shadow-sm p-5 mb-4">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-3"><div><p class="font-semibold text-slate-800">2. Agen Kantor</p><p class="text-xs text-slate-500">Agen hanya membuat koneksi keluar ke aplikasi ini.</p></div>
+    <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${on ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-700'}"><span class="w-2 h-2 rounded-full bg-current"></span>${on ? 'Online' : 'Nonaktif'}</span></div>
+  ${on ? `<p class="text-sm text-slate-700 mb-3">Agen Kantor terakhir melapor <b id="agAgo">3</b> detik lalu · PC-SERVER-KANTOR · PHP 8.2 · agen v1.0 · ${C().nvrs.filter((n) => n.conn === 'agen').length} NVR lewat agen</p>` : ''}
+  <label class="flex items-center gap-2 text-sm font-medium mb-3"><input type="checkbox" id="agOn" ${on ? 'checked' : ''}> Aktifkan Agen Kantor</label>
+  <div class="flex flex-wrap gap-2"><button id="agDl" class="${btnPrimary}" ${on ? '' : 'disabled'}>${icon('download')} Unduh paket agen (.zip)</button></div>
+</div>
+<div class="bg-white rounded-xl shadow-sm p-5">
+  <p class="font-semibold text-slate-800 mb-2">3. Cara memasang agen di PC kantor</p>
+  <ol class="list-decimal pl-5 text-sm text-slate-700 space-y-1.5">
+    <li>Aktifkan Agen Kantor lalu unduh paket agen (sudah berisi alamat aplikasi &amp; kunci).</li>
+    <li>Ekstrak di PC Windows kantor yang selalu menyala, mis. C:\\AgenKantor. Butuh PHP (XAMPP, atau PHP for Windows di folder "php").</li>
+    <li>Uji: klik 2x <code class="bg-slate-100 px-1 rounded">jalankan_agen.bat</code> — status di halaman ini menjadi Online.</li>
+    <li>Permanen: klik kanan <code class="bg-slate-100 px-1 rounded">pasang_agen.bat</code> &gt; Run as administrator.</li>
+    <li>CCTV &gt; Pengaturan: pilih "Agen Kantor" pada NVR. Menu Jaringan otomatis memakai agen untuk Cek &amp; Scan.</li>
+  </ol>
+</div>`;
+    },
+    bind() {
+      $$('input[name=agSrv]').forEach((r) => (r.onchange = () => { AG().server = r.value; save(); render(); toast('Lokasi server: ' + (r.value === 'hosting' ? 'hosting' : 'jaringan kantor') + '.'); }));
+      $('#agOn').onchange = (e) => { AG().enabled = e.target.checked; save(); render(); toast(e.target.checked ? 'Agen Kantor aktif.' : 'Agen Kantor dinonaktifkan.'); };
+      $('#agDl').onclick = () => toast('Di aplikasi asli, file AgenKantor.zip terunduh (asker_agent.php, jalankan_agen.bat, pasang_agen.bat, agen_config.json).');
+      if (agentTimer) clearInterval(agentTimer);
+      let s = 3; agentTimer = setInterval(() => { const el = $('#agAgo'); if (!el) { clearInterval(agentTimer); agentTimer = null; return; } s = s >= 9 ? 1 : s + 1; el.textContent = s; }, 1000);
+    },
+  };
+  ADMIN_NAV.splice(ADMIN_NAV.findIndex((n) => n[0] === 'network') + 1, 0, ['agent', 'globe', 'Agen Kantor']);
+
+  // Menu Jaringan mengikuti lokasi server: di hosting tanpa agen, tab Cek & Scan disembunyikan.
+  const _netTabsOrig = netTabs;
+  netTabs = function () {
+    if (lanMode() !== 'none') return _netTabsOrig();
+    return `<div class="flex gap-1 overflow-x-auto border-b border-slate-200 mb-4 text-sm">${NET_TABS.filter(([k]) => k !== 'check' && k !== 'scan').map(([k, l]) => `<button type="button" data-ntab="${k}" class="px-4 py-2.5 whitespace-nowrap border-b-2 ${netUi.tab === k ? 'border-blue-600 text-blue-700 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-700'}">${l}</button>`).join('')}</div>`;
+  };
+  const _netRenderOrig = PAGES.network.render;
+  PAGES.network.render = function () {
+    const lm = lanMode();
+    if (lm === 'none' && (netUi.tab === 'check' || netUi.tab === 'scan')) netUi.tab = 'topo';
+    const banner = lm === 'none'
+      ? '<div class="mb-3 text-sm rounded-lg px-4 py-3 bg-slate-50 border border-slate-200 text-slate-700"><b>Tab Cek jaringan &amp; Scan disembunyikan.</b> Server ini di hosting sehingga tidak bisa ping ke jaringan kantor. <a href="#/agent" class="text-blue-700 underline">Aktifkan Agen Kantor</a> agar muncul lagi.</div>'
+      : (lm === 'agent' && (netUi.tab === 'check' || netUi.tab === 'scan') ? '<div class="mb-3 text-sm rounded-lg px-4 py-3 bg-violet-50 border border-violet-200 text-slate-700"><b>Dijalankan oleh Agen Kantor.</b> Ping, cek port &amp; scan dijalankan agen di PC kantor lalu hasilnya dikirim ke server. <a href="#/agent" class="underline">Agen Kantor terakhir melapor beberapa detik lalu</a></div>' : '');
+    return banner + _netRenderOrig.call(this);
+  };
+
+  // ------------------------------------------------------------------
   render();
 })();
