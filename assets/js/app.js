@@ -2584,6 +2584,74 @@ ${off ? `<div class="bg-slate-50 border border-slate-200 rounded-xl p-6 text-cen
   }
 
   function monthDays(ym) { const [y, m] = ym.split('-').map(Number); const n = new Date(y, m, 0).getDate(); return Array.from({ length: n }, (_, i) => `${ym}-${pad(i + 1)}`); }
+
+  // Cetak langsung / Simpan PDF rekap bulanan CCTV, dipisah per NVR: VIEW CCTV, Rekap (1 halaman), Log CCTV mati.
+  function cctvPrintReport(nvrId, asPdf) {
+    const c = C(); const ym = cctvUi.month || todayStr().slice(0, 7); const days = monthDays(ym);
+    const [yy, mm] = ym.split('-').map(Number); const monthLabel = `${MONTHS[mm - 1]} ${yy}`;
+    const w = window.open('', '_blank');
+    if (!w) { toast('Pop-up diblokir browser. Izinkan pop-up untuk mencetak.', false); return; }
+    const nvrs = nvrId ? [nvrById(nvrId)] : c.nvrs;
+    const sym = { ok: '✓', bad: '✗', L: 'L' };
+    const AV = 168;
+    const pages = nvrs.map((n) => {
+      const cams = c.cams.filter((x) => x.nvr_id === n.id); const N = cams.length; const half = Math.ceil(N / 2);
+      // VIEW: kolom x baris kotak 16:9 disusun supaya gambar selebar kertas
+      const imgMax = Math.min(105, AV - 9 - 5 - 6 - (half + 1) * 2.4);
+      const target = 269 / Math.max(20, imgMax); let best = Math.ceil(Math.sqrt(N)) || 1; let bestAsp = 0;
+      for (let cc = 1; cc <= Math.max(1, N); cc++) {
+        const asp = cc * 16 / (Math.ceil(N / cc) * 9);
+        if (asp >= target * 0.98 && (bestAsp < target * 0.98 || asp < bestAsp)) { best = cc; bestAsp = asp; }
+        else if (bestAsp < target * 0.98 && asp > bestAsp) { best = cc; bestAsp = asp; }
+      }
+      const imgW = 269; const imgH = Math.min(imgMax, imgW * (Math.ceil(N / best) * 9) / (best * 16));
+      const listRow = Math.max(2.4, Math.min(4.5, (AV - 9 - 5 - 6 - imgH) / (half + 1)));
+      const tiles = cams.map((x) => `<div class="tile"><img src="${snapshotSvg(x, c.snapshots[x.id] || c.last_check)}" alt=""><span>D${x.channel} ${esc(x.name)}</span></div>`).join('');
+      const camRow = (x, i) => x ? `<td class="c">${i + 1}</td><td><b>${esc(x.name)}</b></td><td>${esc(x.location)}</td><td class="c">D${x.channel}</td><td class="c">${esc(x.ip)}</td><td>${esc(x.type)}</td>` : '<td></td><td></td><td></td><td></td><td></td><td></td>';
+      const head = '<th style="width:3%">NO</th><th style="width:15%">NAMA CCTV</th><th style="width:8%">LOKASI</th><th style="width:5%">CH</th><th style="width:8%">IP ADDRESS</th><th style="width:9%">DEVICE TYPE</th>';
+      const listRows = Array.from({ length: half }, (_, i) => `<tr>${camRow(cams[i], i)}<td class="gap"></td>${camRow(cams[i + half], i + half)}</tr>`).join('');
+      // Rekap: tinggi baris dihitung dari jumlah kamera supaya 1 NVR = 1 halaman
+      const rowMm = Math.max(1.9, Math.min(5, (AV - 39) / (N + 1.3)));
+      const dayHead = days.map((ds) => `<th class="${isOffDay(ds) ? 'we' : ''}">${+ds.slice(8)}</th>`).join('');
+      const recRows = cams.map((x, i) => `<tr><td class="c">${i + 1}</td><td class="nw">${esc(x.name)}</td>${days.map((ds) => { const st = dayStatus(x, ds); return `<td class="c ${st} ${isOffDay(ds) ? 'we' : ''}">${sym[st] || ''}</td>`; }).join('')}</tr>`).join('');
+      const log = c.events.filter((e) => cams.some((x) => x.id === e.cam_id) && e.start.slice(0, 7) === ym).sort((a, b) => a.start.localeCompare(b.start));
+      const logRows = log.map((e, i) => { const x = c.cams.find((k) => k.id === e.cam_id); return `<tr><td class="c">${i + 1}</td><td class="c">${fmtDateTime(e.start)}</td><td class="c">${e.end ? fmtDateTime(e.end) : '<b style="color:#b91c1c">Masih mati</b>'}</td><td class="c">${durText((e.end ? new Date(e.end) : new Date()) - new Date(e.start))}</td><td>${esc(x.name)}</td></tr>`; }).join('');
+      return `
+<section class="pg"><div class="kop">${esc(appName())}</div><p class="vt">${esc(n.name.toUpperCase())} (${N}CH) <small>Checklist CCTV ${monthLabel}</small></p>
+  <div class="grid" style="grid-template-columns:repeat(${best},1fr);width:${imgW}mm;max-width:100%">${tiles}</div>
+  <p class="ip"><b>IP NVR :</b> LOKAL IP : ${esc(n.ip)} &nbsp;&bull;&nbsp; PUBLIC IP : -</p>
+  <table class="g vc" style="--rh:${listRow.toFixed(2)}mm;--fs:${Math.min(8, listRow * 2.1).toFixed(1)}pt"><thead><tr>${head}<th class="gap"></th>${head}</tr></thead><tbody>${listRows}</tbody></table></section>
+<section class="pg"><div class="kop">${esc(appName())}</div><p class="dt">LAPORAN BULANAN PEMERIKSAAN CCTV</p><p class="dm">${esc(n.name)} &bull; Periode: ${monthLabel} &bull; Kamera: <b>${N}</b> &bull; Kejadian mati: <b>${log.length}</b></p>
+  <table class="g mx" style="--rh:${rowMm.toFixed(2)}mm;--fs:${Math.min(8, rowMm * 2.15).toFixed(1)}pt"><thead><tr><th style="width:5mm">No</th><th style="width:46mm">Nama CCTV</th>${dayHead}</tr></thead><tbody>${recRows}</tbody></table>
+  <p class="lg">✓ semua shift OK &bull; ✗ ada temuan &bull; L = hari libur (checklist tidak wajib)</p></section>
+<section class="pg"><div class="kop">${esc(appName())}</div><p class="dt">LOG CCTV MATI</p><p class="dm">${esc(n.name)} &bull; ${monthLabel}</p>
+  ${log.length ? `<table class="g"><thead><tr><th style="width:5%">No</th><th>Mati sejak</th><th>Hidup lagi</th><th>Durasi</th><th style="width:35%">Kamera</th></tr></thead><tbody>${logRows}</tbody></table>` : '<p class="lg">Tidak ada kamera mati di periode ini.</p>'}</section>`;
+    }).join('');
+    w.document.write(`<!DOCTYPE html><html><head><title>Laporan CCTV ${monthLabel}</title><meta charset="utf-8"><style>
+      @page { size: A4 landscape; margin: 10mm 14mm; }
+      body { font-family: Arial, sans-serif; font-size: 9.5px; color: #111827; margin: 0; }
+      .pg { page-break-after: always; break-after: page; } .pg:last-child { page-break-after: auto; }
+      .kop { font-weight: bold; color: #173A68; font-size: 12px; border-bottom: 1.5px solid #173A68; padding-bottom: 2mm; margin-bottom: 3mm; }
+      .vt { font-weight: bold; font-size: 17px; margin: 0 0 1mm; } .vt small { font-size: 9px; font-weight: normal; color: #475569; margin-left: 6px; }
+      .dt { text-align: center; font-weight: bold; font-size: 14px; margin: 0; } .dm { text-align: center; color: #374151; margin: 0 0 1.5mm; }
+      .grid { display: grid; gap: 1px; background: #000; margin: 0 0 1mm; } .tile { position: relative; aspect-ratio: 16/9; overflow: hidden; background: #111; }
+      .tile img { width: 100%; height: 100%; object-fit: cover; display: block; } .tile span { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 6px; padding: 0 2px; white-space: nowrap; overflow: hidden; }
+      .ip { margin: 1mm 0 2mm; font-size: 10px; }
+      table.g { width: 100%; border-collapse: collapse; } table.g th, table.g td { border: 1px solid #94a3b8; padding: 0 1mm; }
+      table.g th { background: #e5ecf6; text-align: center; } .c { text-align: center; } td.nw { white-space: nowrap; }
+      table.vc td, table.vc th { height: var(--rh); line-height: var(--rh); white-space: nowrap; overflow: hidden; font-size: var(--fs); } table.vc .gap { width: 2%; border: 0; background: none; }
+      table.mx { table-layout: fixed; } table.mx td, table.mx th { height: var(--rh); line-height: var(--rh); padding: 0; font-size: var(--fs); overflow: hidden; }
+      table.mx th.we { background: #fecdd3; color: #dc2626; } table.mx td.we { background: #ffe4e6; } td.ok { color: #15803d; } td.bad { background: #fee2e2; color: #b91c1c; font-weight: bold; } td.L { color: #dc2626; font-weight: bold; }
+      .lg { color: #374151; margin: 1.5mm 0; }
+      .hint { position: fixed; top: 0; left: 0; right: 0; background: #fef9c3; color: #713f12; padding: 6px 12px; font-size: 12px; text-align: center; }
+      @media print { .hint { display: none; } }
+    </style></head><body>
+    ${asPdf ? '<div class="hint">Pada dialog cetak, pilih tujuan <b>Simpan sebagai PDF</b>. Di aplikasi asli, tombol Simpan PDF langsung mengunduh file PDF.</div>' : ''}
+    ${pages}
+    <script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`);
+    w.document.close();
+  }
+
   function cctvReport() {
     const c = C(); const ym = cctvUi.month || todayStr().slice(0, 7); const days = monthDays(ym);
     const months = []; const d0 = new Date(); for (let i = 0; i < 6; i++) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); months.push({ value: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}` }); }
@@ -2592,14 +2660,14 @@ ${off ? `<div class="bg-slate-50 border border-slate-200 rounded-xl p-6 text-cen
       const cams = c.cams.filter((x) => x.nvr_id === n.id);
       const log = c.events.filter((e) => cams.some((x) => x.id === e.cam_id) && e.start.slice(0, 7) === ym).sort((a, b) => a.start.localeCompare(b.start));
       return `<div class="bg-white rounded-xl shadow-sm mb-5 overflow-hidden">
-  <div class="px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2"><p class="font-semibold text-slate-700">Rekap ${esc(n.name)} — ${esc(months.find((m) => m.value === ym)?.label || ym)}</p><button data-csv="${n.id}" class="${btnGhost} !py-1.5">${icon('download')} Export ${esc(n.name)}</button></div>
+  <div class="px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2"><p class="font-semibold text-slate-700">Rekap ${esc(n.name)} — ${esc(months.find((m) => m.value === ym)?.label || ym)}</p><div class="flex flex-wrap gap-2"><button data-print="${n.id}" class="${btnPrimary} !py-1.5">${icon('printer')} Cetak langsung</button><button data-pdf="${n.id}" class="${btnGhost} !py-1.5">${icon('download')} Simpan PDF</button><button data-csv="${n.id}" class="${btnGhost} !py-1.5">${icon('download')} Export ${esc(n.name)}</button></div></div>
   <div class="overflow-x-auto"><table class="text-xs border-collapse"><thead><tr class="bg-slate-50 text-slate-500"><th class="sticky left-0 bg-slate-50 py-2 px-2 text-left border-b min-w-[11rem]">Nama CCTV</th>${days.map((ds) => `<th class="py-2 px-1 border-b w-6 ${isOffDay(ds) ? 'bg-slate-100' : ''}" title="${isOffDay(ds) ? esc(offLabel(ds)) : ''}">${+ds.slice(8)}</th>`).join('')}</tr></thead>
   <tbody>${cams.map((x) => `<tr class="border-b last:border-0"><td class="sticky left-0 bg-white py-1.5 px-2 font-medium whitespace-nowrap">${esc(x.name)}</td>${days.map((ds) => { const s = dayStatus(x, ds); return `<td class="text-center px-1 ${s === 'L' ? 'bg-slate-50' : ''}">${cell(s)}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>
   <div class="px-4 py-3 border-t bg-slate-50/60"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Log CCTV mati ${esc(n.name)} (halaman 2 di file Excel)</p>
   ${log.length ? `<table class="w-full text-xs"><tbody>${log.map((e) => { const x = c.cams.find((k) => k.id === e.cam_id); return `<tr class="border-b last:border-0"><td class="py-1 pr-3 font-medium">${esc(x.name)}</td><td class="py-1 pr-3">${fmtDateTime(e.start)}</td><td class="py-1 pr-3">${e.end ? fmtDateTime(e.end) : '<span class="text-red-600">masih mati</span>'}</td><td class="py-1">${durText((e.end ? new Date(e.end) : new Date()) - new Date(e.start))}</td></tr>`; }).join('')}</tbody></table>` : '<p class="text-xs text-slate-400">Tidak ada kamera mati bulan ini.</p>'}</div></div>`;
     }).join('');
-    return `${demoNote('Di aplikasi asli, Export Excel menghasilkan 1 file: sheet cover <b>VIEW NVR</b> (multi-view snapshot), lalu sheet <b>Rekap per NVR</b> yang muat 1 lembar A4, dengan log CCTV mati di halaman 2. Demo ini mengekspor CSV. ✓ = normal, ✗ = bermasalah, L = libur.')}
-<div class="bg-white rounded-xl shadow-sm p-3 mb-4 flex items-center gap-2"><label class="text-sm text-slate-600">Bulan</label><select id="rpMonth" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">${options(months, ym)}</select></div>${tables}`;
+    return `${demoNote('<b>Cetak langsung / Simpan PDF</b> menghasilkan A4 mendatar yang dipisah per NVR: <b>VIEW CCTV</b> (gambar multi-view selebar kertas + daftar kamera, 1 halaman), <b>Rekap</b> kamera × tanggal (1 halaman), dan <b>Log CCTV mati</b>. Ukurannya tetap, tidak mengecil seperti hasil cetak Excel. Di aplikasi asli juga tersedia Export Excel; demo ini mengekspor CSV. ✓ = normal, ✗ = bermasalah, L = libur.')}
+<div class="bg-white rounded-xl shadow-sm p-3 mb-4 flex items-center gap-2"><label class="text-sm text-slate-600">Bulan</label><select id="rpMonth" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">${options(months, ym)}</select><div class="flex gap-2 ml-auto"><button data-print="0" class="${btnPrimary}">${icon('printer')} Cetak semua NVR</button><button data-pdf="0" class="${btnGhost}">${icon('download')} Simpan PDF semua NVR</button></div></div>${tables}`;
   }
 
   function cctvLog() {
@@ -2679,6 +2747,8 @@ ${off ? `<div class="bg-slate-50 border border-slate-200 rounded-xl p-6 text-cen
       }
       if (cctvUi.tab === 'report') {
         $('#rpMonth').onchange = (e) => { cctvUi.month = e.target.value; rr(); };
+        $$('[data-print]').forEach((b) => (b.onclick = () => cctvPrintReport(+b.dataset.print, false)));
+        $$('[data-pdf]').forEach((b) => (b.onclick = () => cctvPrintReport(+b.dataset.pdf, true)));
         $$('[data-csv]').forEach((b) => (b.onclick = () => {
           const n = nvrById(+b.dataset.csv); const ym = cctvUi.month || todayStr().slice(0, 7); const days = monthDays(ym);
           const sym = { ok: 'V', bad: 'X', L: 'L' };
