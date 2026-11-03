@@ -7,7 +7,7 @@
 ⬇️ **Unduh aplikasi (open source, lisensi MIT):** <https://reksa-yp.github.io/it-asset-management-demo/unduh.html>
 — atau langsung file ZIP-nya: [`asker-it-asset.zip`](https://github.com/reksa-yp/it-asset-management-demo/releases/latest/download/asker-it-asset.zip) (versi terbaru dari halaman [Releases](https://github.com/reksa-yp/it-asset-management-demo/releases)) (PHP + MySQL, siap dipasang di XAMPP atau hosting seperti Hostinger/cPanel).
 
-📘 **Panduan penggunaan (PDF, 33 halaman):** [`download/Panduan-Penggunaan-ASKER-IT-Asset.pdf`](download/Panduan-Penggunaan-ASKER-IT-Asset.pdf) — fungsi setiap menu dan cara menggunakannya. File ini juga ada di dalam ZIP.
+📘 **Panduan penggunaan (PDF, 34 halaman):** [`download/Panduan-Penggunaan-ASKER-IT-Asset.pdf`](download/Panduan-Penggunaan-ASKER-IT-Asset.pdf) — fungsi setiap menu dan cara menggunakannya. File ini juga ada di dalam ZIP.
 
 > Demo ini berjalan 100% di browser dengan **data contoh fiktif**. Silakan tambah, ubah, atau hapus data —
 > perubahan hanya tersimpan di browser Anda dan bisa dikembalikan lewat tombol **Reset data demo**.
@@ -56,7 +56,7 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
 - 🆕 **CCTV** — status kamera dibaca langsung dari NVR Hikvision/Dahua (atau IP kamera) dan tampil **realtime**, dengan **live preview & video dari RTSP sub-stream**,
   log CCTV mati, pop-up web (≥ 10 menit) dan **email jika kamera mati ≥ 30 menit**, **checklist digital** Pagi & Sore pengganti form kertas
   (hari libur Sabtu/Minggu & libur nasional bisa diatur), laporan petugas, **List View** dengan snapshot kamera,
-  import CCTV/NVR dari Excel, dan **Export Excel rekap bulanan per NVR** (cover multi-view, rekap 1 lembar A4, log CCTV mati).
+  import CCTV/NVR dari Excel, dan **rekap bulanan per NVR yang bisa dicetak langsung, disimpan PDF, atau di-export Excel** (VIEW CCTV selebar kertas + daftar kamera, rekap 1 halaman A4 per NVR, log CCTV mati).
 - 🆕 **Ext Telepon** — daftar nomor extension kantor (admin & user), siap cetak/PDF/Excel.
 - 🆕 **Jaringan** — cek koneksi semua aset ber-IP sekali klik (ping + cek port bila ping diblokir), deteksi switch diduga mati,
   **topologi otomatis** dari data "Terhubung ke" dengan semua IP perangkat, **kotak per lokasi**, **warna kabel per switch/router**,
