@@ -4017,5 +4017,295 @@ ${isAdmin() ? `<td class="py-2 px-3 whitespace-nowrap text-right"><button data-e
   };
 
   // ------------------------------------------------------------------
+  // Pembaruan Nov 2026: Pengajuan Khusus, Nametag (+ Nametag Tamu), Standar Spesifikasi, Map CCTV, Stok (ubah lokasi).
+  // Semua data FIKTIF dan tersimpan di localStorage browser; cetak/PDF/terjemahan hanya disimulasikan.
+  // ------------------------------------------------------------------
+  ICONS['file-plus'] = '<path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M3 15h6"/><path d="M6 12v6"/>';
+  ICONS.map = '<path d="M14.1 4.6 9.9 3 4 5v16l5.9-2 4.2 1.6L20 19V3z"/><path d="M9.9 3v16"/><path d="M14.1 4.6v16"/>';
+  ICONS.gauge = '<path d="m12 14 4-4"/><path d="M3.3 19a10 10 0 1 1 17.4 0"/>';
+  const printOrNote = () => { if (ARTIFACT) toast('Cetak dinonaktifkan di mode artifact. Di aplikasi asli: cetak langsung atau Simpan PDF.', false); else window.print(); };
+
+  // ---------- Data awal ----------
+  function reqSeed() {
+    const us = db.users.filter((u) => u.role !== 'admin' && u.is_active);
+    const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
+    const u = (i) => (us[i % us.length] || {});
+    const mk = (id, ui, type, cat, detail, reason, status, note, ago, photo) => ({ id, number: 'REQ-2026-' + String(id).padStart(4, '0'), user_id: u(ui).id, requester_name: '', requester_dept: '', submitted_by: u(ui).id, type, category: cat, detail, reason, status, admin_note: note, photo: !!photo, created_at: day(ago) });
+    return [
+      mk(1, 0, 'Pengajuan Baru', 'Monitor', 'Monitor 24 inci IPS, 1 unit', 'Layar lama terlalu kecil untuk membuka dua aplikasi sekaligus.', 'Menunggu', '', 1, false),
+      mk(2, 1, 'Penggantian Barang', 'Mouse / Keyboard', 'Keyboard wireless, 1 unit', 'Beberapa tombol sudah tidak berfungsi.', 'Disetujui', 'Disetujui, menunggu stok datang minggu depan.', 4, true),
+      mk(3, 2, 'Pengajuan Baru', 'Laptop', 'Laptop RAM 16 GB untuk pekerjaan desain', 'Laptop saat ini sering hang saat membuka file besar.', 'Ditolak', 'Ditolak: unit stok setara masih tersedia, silakan ambil lewat Serah Terima.', 9, false),
+      mk(4, 3, 'Pengajuan Baru', 'Aksesoris', 'Headset USB dengan mikrofon, 2 unit', 'Untuk meeting online tim.', 'Selesai', 'Barang sudah diserahkan.', 16, false),
+    ];
+  }
+  if (!db.requests) { db.requests = reqSeed(); save(); }
+  const _resetBefore2 = resetDemo;
+  resetDemo = function () { _resetBefore2(); db.requests = reqSeed(); db.camMap = mapSeed(); save(); };
+
+  // ---------- Pengajuan Khusus ----------
+  const REQ_CATS = ['Laptop', 'Desktop PC', 'Monitor', 'Printer', 'Mouse / Keyboard', 'Aksesoris', 'Lainnya'];
+  const REQ_STATUS = ['Menunggu', 'Disetujui', 'Ditolak', 'Selesai', 'Dibatalkan'];
+  const reqBadge = (s) => `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${({ Menunggu: 'bg-amber-100 text-amber-700', Disetujui: 'bg-emerald-100 text-emerald-700', Ditolak: 'bg-red-100 text-red-700', Selesai: 'bg-blue-100 text-blue-700', Dibatalkan: 'bg-slate-100 text-slate-500' })[s] || 'bg-slate-100'}">${s}</span>`;
+  const reqWho = (r) => r.requester_name || (userById(r.user_id) || {}).full_name || '-';
+  const reqDept = (r) => r.requester_dept || (userById(r.user_id) || {}).department || '-';
+  const reqUi = { q: '', status: '', cat: '', sel: new Set() };
+  PAGES.request = {
+    render() {
+      const adm = isAdmin(), me = currentUser();
+      let rows = db.requests.filter((r) => adm || r.user_id === me.id || r.submitted_by === me.id).sort((a, b) => b.id - a.id);
+      const all = rows;
+      const q = reqUi.q.toLowerCase();
+      rows = rows.filter((r) => (!reqUi.status || r.status === reqUi.status) && (!reqUi.cat || r.category === reqUi.cat)
+        && (!q || [r.number, reqWho(r), reqDept(r), r.detail, r.reason].join(' ').toLowerCase().includes(q)));
+      const cnt = (s) => all.filter((r) => r.status === s).length;
+      const card = (label, n, cls) => `<div class="bg-white rounded-xl shadow-sm p-4"><p class="text-xs text-slate-500">${label}</p><p class="text-2xl font-bold ${cls}">${n}</p></div>`;
+      return `<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">${card('Pengajuan Menunggu', cnt('Menunggu'), 'text-amber-600')}${card('Pengajuan Disetujui', cnt('Disetujui'), 'text-emerald-600')}${card('Pengajuan Ditolak', cnt('Ditolak'), 'text-red-600')}${card(adm ? 'Semua Pengajuan' : 'Riwayat Saya', all.length, 'text-slate-700')}</div>
+<div class="bg-white rounded-xl shadow-sm p-3 mb-4 flex flex-wrap items-center gap-2">
+  <div class="relative flex-1 min-w-[12rem]"><span class="absolute left-3 top-2.5 text-slate-400">${icon('search')}</span><input id="rqQ" value="${esc(reqUi.q)}" placeholder="Cari nomor, nama, departemen, detail, alasan…" class="${inputCls} pl-9"></div>
+  <select id="rqSt" class="${inputCls} !w-auto">${options(REQ_STATUS.map((s) => ({ value: s, label: s })), reqUi.status, 'Semua status')}</select>
+  <select id="rqCat" class="${inputCls} !w-auto">${options(REQ_CATS.map((s) => ({ value: s, label: s })), reqUi.cat, 'Semua kategori')}</select>
+  ${adm ? `<button id="rqDelSel" class="${btnGhost} text-red-600">${icon('trash')} Hapus terpilih</button>` : ''}
+  <button id="rqPrintAll" class="${btnGhost}">${icon('file-text')} Cetak Riwayat</button>
+  <button id="rqNew" class="${btnPrimary}">${icon('plus')} Buat Pengajuan</button>
+</div>
+<div class="bg-white rounded-xl shadow-sm overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-slate-500 bg-slate-50 border-b">${adm ? '<th class="py-2 px-3 w-8"></th>' : ''}<th class="py-2 px-3">Nomor / Tanggal</th><th class="py-2 px-3">${adm ? 'Diajukan oleh' : 'Jenis'}</th><th class="py-2 px-3">Kategori</th><th class="py-2 px-3">Detail &amp; Alasan</th><th class="py-2 px-3">Status</th><th class="py-2 px-3"></th></tr></thead>
+<tbody>${rows.map((r) => `<tr class="border-b last:border-0 align-top">${adm ? `<td class="py-2 px-3"><input type="checkbox" data-rqsel="${r.id}" ${reqUi.sel.has(r.id) ? 'checked' : ''}></td>` : ''}
+<td class="py-2 px-3 whitespace-nowrap"><b class="text-brand-700">${r.number}</b><div class="text-xs text-slate-400">${fmtDate(r.created_at)}</div></td>
+<td class="py-2 px-3 whitespace-nowrap">${adm ? `<b>${esc(reqWho(r))}</b><div class="text-xs text-slate-400">${esc(reqDept(r))}</div>` : esc(r.type)}</td>
+<td class="py-2 px-3 whitespace-nowrap">${esc(r.category)}${adm ? `<div class="text-xs text-slate-400">${esc(r.type)}</div>` : ''}</td>
+<td class="py-2 px-3 min-w-[16rem]"><div>${esc(r.detail)}</div><div class="text-xs text-slate-500 mt-0.5">Alasan: ${esc(r.reason)}</div>${r.admin_note ? `<div class="text-xs mt-1 rounded bg-slate-50 border px-2 py-1 text-slate-600">Catatan admin: ${esc(r.admin_note)}</div>` : ''}${r.photo ? `<div class="text-xs text-blue-600 mt-1">${icon('eye', 'w-3 h-3 inline')} Lihat foto</div>` : ''}</td>
+<td class="py-2 px-3">${reqBadge(r.status)}</td>
+<td class="py-2 px-3 whitespace-nowrap text-right"><button data-rqprint="${r.id}" class="text-slate-500 hover:text-slate-700 mr-2" title="Cetak detail">${icon('file-text')}</button>${adm ? `<button data-rqstat="${r.id}" class="text-blue-600 hover:text-blue-800 mr-2" title="Ubah status">${icon('pencil')}</button>` : (r.status === 'Menunggu' ? `<button data-rqcancel="${r.id}" class="text-red-600 hover:text-red-800" title="Batalkan">${icon('x')}</button>` : '')}</td></tr>`).join('') || `<tr><td colspan="7" class="py-8 text-center text-slate-400">${all.length ? 'Tidak ada pengajuan yang cocok dengan pencarian.' : 'Belum ada pengajuan.'}</td></tr>`}</tbody></table></div></div>`;
+    },
+    bind() {
+      const adm = isAdmin();
+      const q = $('#rqQ'); q.oninput = () => { reqUi.q = q.value; const p = q.selectionStart; render(); const n = $('#rqQ'); n.focus(); n.setSelectionRange(p, p); };
+      $('#rqSt').onchange = (e) => { reqUi.status = e.target.value; render(); };
+      $('#rqCat').onchange = (e) => { reqUi.cat = e.target.value; render(); };
+      $$('[data-rqsel]').forEach((c) => (c.onchange = () => { c.checked ? reqUi.sel.add(+c.dataset.rqsel) : reqUi.sel.delete(+c.dataset.rqsel); }));
+      $('#rqPrintAll').onclick = printOrNote;
+      if ($('#rqDelSel')) $('#rqDelSel').onclick = async () => {
+        if (!reqUi.sel.size) { toast('Pilih pengajuan terlebih dahulu.', false); return; }
+        if (!(await ask('Hapus pengajuan terpilih secara permanen?', 'Hapus'))) return;
+        db.requests = db.requests.filter((r) => !reqUi.sel.has(r.id)); reqUi.sel.clear(); save(); render(); toast('Pengajuan dihapus.');
+      };
+      $$('[data-rqcancel]').forEach((b) => (b.onclick = async () => { if (!(await ask('Batalkan pengajuan ini? Tindakan ini tidak dapat dibatalkan.', 'Ya, batalkan'))) return; db.requests.find((r) => r.id === +b.dataset.rqcancel).status = 'Dibatalkan'; save(); render(); toast('Pengajuan dibatalkan.'); }));
+      $$('[data-rqprint]').forEach((b) => (b.onclick = () => {
+        const r = db.requests.find((x) => x.id === +b.dataset.rqprint);
+        openModal('Detail Pengajuan', `<div class="text-sm space-y-2"><div class="border-b pb-2"><b>${r.number}</b> ${reqBadge(r.status)}<div class="text-xs text-slate-500">${fmtDateTime(r.created_at)}</div></div>
+          <p><span class="text-slate-500">Diajukan oleh:</span> ${esc(reqWho(r))} (${esc(reqDept(r))})</p><p><span class="text-slate-500">Jenis / Kategori:</span> ${esc(r.type)} · ${esc(r.category)}</p>
+          <p><span class="text-slate-500">Detail:</span> ${esc(r.detail)}</p><p><span class="text-slate-500">Alasan:</span> ${esc(r.reason)}</p>${r.admin_note ? `<p><span class="text-slate-500">Catatan admin:</span> ${esc(r.admin_note)}</p>` : ''}
+          <p class="text-xs text-slate-400 pt-2 border-t">Di aplikasi asli dokumen ini dicetak dengan kop surat perusahaan.</p><div class="flex justify-end"><button id="rqDoPrint" class="${btnPrimary}">${icon('file-text')} Cetak detail</button></div></div>`, { onMount: (w) => { $('#rqDoPrint', w).onclick = printOrNote; } });
+      }));
+      $$('[data-rqstat]').forEach((b) => (b.onclick = () => {
+        const r = db.requests.find((x) => x.id === +b.dataset.rqstat);
+        openModal('Ubah Status ' + r.number, `<form id="rqStForm" class="space-y-3">${field('Status', `<select name="status" class="${inputCls}">${options(REQ_STATUS.filter((s) => s !== 'Dibatalkan').map((s) => ({ value: s, label: s })), r.status)}</select>`)}
+          ${field('Catatan admin <span class="text-xs text-slate-400">(wajib saat menolak)</span>', `<textarea name="note" rows="3" class="${inputCls}">${esc(r.admin_note)}</textarea>`)}
+          <div class="flex justify-end"><button class="${btnPrimary}">${icon('check')} Simpan Status</button></div></form>`, { onMount: (w) => { $('#rqStForm', w).onsubmit = (e) => {
+          e.preventDefault(); const f = formData(e.target);
+          if (f.status === 'Ditolak' && !f.note.trim()) { toast('Isi catatan terlebih dahulu.', false); return; }
+          r.status = f.status; r.admin_note = f.note.trim(); save(); closeModal(); render(); toast('Status pengajuan diperbarui.'); }; } });
+      }));
+      $('#rqNew').onclick = () => {
+        const users = db.users.filter((u) => u.is_active && u.role !== 'admin');
+        openModal('Buat Pengajuan', `<form id="rqForm" class="space-y-3">
+          ${adm ? field('Diajukan untuk', `<select name="who" id="rqWho" class="${inputCls}"><option value="me">Saya sendiri — ${esc(currentUser().full_name)}</option>${users.map((u) => `<option value="${u.id}">${esc(u.full_name)} (${esc(u.department || '-')})</option>`).join('')}<option value="new">Orang baru — belum memiliki akun</option></select>`) + `<div id="rqNewWho" class="hidden grid grid-cols-2 gap-3">${field('Nama lengkap', `<input name="nw_name" placeholder="Masukkan nama lengkap" class="${inputCls}">`)}${field('Departemen', `<input name="nw_dept" placeholder="Masukkan departemen" class="${inputCls}">`)}</div>` : ''}
+          <div class="grid grid-cols-2 gap-3">${field('Jenis Pengajuan', `<select name="type" id="rqType" class="${inputCls}"><option>Pengajuan Baru</option><option>Penggantian Barang</option></select>`)}${field('Kategori', `<select name="category" class="${inputCls}">${REQ_CATS.map((c) => `<option>${c}</option>`).join('')}</select>`)}</div>
+          ${field('Detail kebutuhan', `<textarea name="detail" required rows="2" placeholder="Tuliskan barang/spesifikasi yang diajukan secara bebas, misalnya nama barang, tipe, jumlah, atau kebutuhan khusus." class="${inputCls}"></textarea>`)}
+          ${field('Alasan Pengajuan', `<textarea name="reason" required rows="2" placeholder="Jelaskan alasan dan kebutuhan pengajuan ini." class="${inputCls}"></textarea>`)}
+          <div id="rqPhotoBox" class="hidden">${field('Foto Barang yang Ingin Diganti <span class="text-red-500">*</span>', `<input type="file" accept="image/*" name="photo" id="rqPhoto" class="${inputCls}"><p class="text-xs text-slate-500 mt-1">Foto barang wajib dilampirkan untuk pengajuan penggantian. Bisa unggah, tempel screenshot, atau foto langsung. Maks. 8 MB.</p>`)}</div>
+          <div class="flex justify-between gap-2 pt-1"><button type="button" id="rqTr" class="${btnGhost}">Translate to English</button><button class="${btnPrimary}">${icon('check')} Kirim Pengajuan</button></div></form>`, { onMount: (w) => {
+          const typ = $('#rqType', w); typ.onchange = () => $('#rqPhotoBox', w).classList.toggle('hidden', typ.value !== 'Penggantian Barang');
+          if ($('#rqWho', w)) $('#rqWho', w).onchange = (e) => $('#rqNewWho', w).classList.toggle('hidden', e.target.value !== 'new');
+          $('#rqTr', w).onclick = () => toast('Di aplikasi asli: detail & alasan diterjemahkan ke English sebelum dikirim, teks asli tetap tersimpan.');
+          $('#rqForm', w).onsubmit = (e) => {
+            e.preventDefault(); const f = formData(e.target);
+            if (f.type === 'Penggantian Barang' && !($('#rqPhoto', w).files || []).length) { toast('Foto barang wajib dilampirkan untuk pengajuan penggantian.', false); return; }
+            const rec = { id: nextId(db.requests), type: f.type, category: f.category, detail: f.detail.trim(), reason: f.reason.trim(), status: 'Menunggu', admin_note: '', photo: f.type === 'Penggantian Barang', created_at: new Date().toISOString(), submitted_by: currentUser().id, user_id: currentUser().id, requester_name: '', requester_dept: '' };
+            rec.number = 'REQ-2026-' + String(rec.id).padStart(4, '0');
+            if (adm && f.who && f.who !== 'me') { if (f.who === 'new') { if (!f.nw_name.trim()) { toast('Masukkan nama lengkap.', false); return; } rec.requester_name = f.nw_name.trim(); rec.requester_dept = (f.nw_dept || '').trim(); rec.user_id = 0; } else rec.user_id = +f.who; }
+            db.requests.push(rec); save(); closeModal(); render(); toast('Pengajuan terkirim. Admin mendapat pop-up notifikasi.');
+          }; } });
+      };
+    },
+  };
+  ADMIN_NAV.splice(ADMIN_NAV.findIndex((n) => n[0] === 'tickets') + 1, 0, ['request', 'file-plus', 'Pengajuan Khusus']);
+  USER_NAV.splice(USER_NAV.findIndex((n) => n[0] === 'tickets') + 1, 0, ['request', 'file-plus', 'Pengajuan Khusus']);
+
+  // ---------- Nametag (karyawan) + Nametag Tamu ----------
+  const ntUi = { tab: 'mine', nick: '', guests: 'Bapak Andi Wijaya ; Direktur, PT Contoh Sejahtera\nIbu Sari Lestari ; Manajer Pengadaan, CV Maju Bersama\nBapak Rudi Hartono ; Auditor Eksternal', paper: 'F4' };
+  const ntCard = (name, nick, role, dept) => `<svg viewBox="0 0 270 165" class="w-full rounded-lg shadow border border-slate-200" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="ntg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e3a8a"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs><rect width="270" height="165" fill="url(#ntg)"/><rect x="0" y="118" width="270" height="47" fill="#fff"/><rect x="14" y="14" width="34" height="22" rx="4" fill="#fff" opacity=".9"/><text x="31" y="29" text-anchor="middle" font-size="11" font-weight="700" fill="#1e3a8a" font-family="Inter,Arial">IT</text><text x="14" y="78" font-size="${name.length > 22 ? 15 : 19}" font-weight="700" fill="#fff" font-family="Inter,Arial">${esc(name.toUpperCase())}${nick ? ' / ' + esc(nick.toUpperCase()) : ''}</text><text x="14" y="98" font-size="11" fill="#dbeafe" font-family="Inter,Arial">${esc(role)}</text><text x="14" y="140" font-size="10" fill="#475569" font-family="Inter,Arial">${esc(dept)}</text></svg>`;
+  PAGES.nametag = {
+    render() {
+      const adm = isAdmin(), me = currentUser();
+      const tabs = `<div class="flex gap-1 overflow-x-auto bg-white rounded-xl shadow-sm p-1.5 mb-4"><button type="button" data-nttab="mine" class="asset-tab-btn ${ntUi.tab === 'mine' ? 'asset-tab-active' : ''}">Nametag saya</button>${adm ? `<button type="button" data-nttab="guest" class="asset-tab-btn ${ntUi.tab === 'guest' ? 'asset-tab-active' : ''}">Nametag tamu</button>` : ''}</div>`;
+      if (ntUi.tab === 'guest' && adm) {
+        const list = ntParse();
+        const sheets = Math.ceil(list.length / 2);
+        return tabs + `<div class="grid lg:grid-cols-2 gap-4"><div class="bg-white rounded-xl shadow-sm p-5"><p class="font-semibold text-slate-700 mb-1">Daftar tamu</p><p class="text-xs text-slate-500 mb-2">Satu baris satu tamu: <code>Nama ; Jabatan/Perusahaan</code>. Bisa juga tempel dari Excel (2 kolom). Maks. 100 nama sekali cetak.</p>
+          <textarea id="ntGuests" rows="9" class="${inputCls} font-mono text-xs">${esc(ntUi.guests)}</textarea>
+          <div class="flex flex-wrap items-center gap-2 mt-3"><select id="ntPaper" class="${inputCls} !w-auto">${options([{ value: 'F4', label: 'Kertas F4 / Folio (landscape)' }, { value: 'Legal', label: 'Kertas Legal (landscape)' }], ntUi.paper)}</select><span class="text-sm text-slate-500">${list.length} nametag · ${sheets} lembar (2 per lembar)</span></div>
+          <div class="flex gap-2 mt-3"><button id="ntPrint" class="${btnPrimary}">${icon('file-text')} Cetak semua</button><button id="ntPdf" class="${btnGhost}">${icon('download')} Simpan PDF</button></div>
+          <p class="text-xs text-slate-400 mt-3">Ukuran 15 × 19,99 cm (dilipat dua). Garis putus-putus merah = garis potong. Logo di pita putih memakai logo aplikasi. Daftar tamu tidak disimpan di database.</p></div>
+          <div class="bg-white rounded-xl shadow-sm p-5"><p class="font-semibold text-slate-700 mb-2">Pratinjau</p><div class="grid grid-cols-2 gap-3">${list.slice(0, 4).map((g) => `<svg viewBox="0 0 150 200" class="w-full border-2 border-dashed border-red-400 bg-white"><rect width="150" height="100" fill="#1e3a8a"/><rect y="100" width="150" height="100" fill="#fff"/><line x1="0" y1="100" x2="150" y2="100" stroke="#cbd5e1" stroke-dasharray="3 3"/><text x="75" y="55" text-anchor="middle" font-size="${g.name.length > 18 ? 8 : 11}" font-weight="700" fill="#fff" font-family="Inter,Arial" transform="rotate(180 75 50)">${esc(g.name.toUpperCase())}</text><text x="75" y="70" text-anchor="middle" font-size="6" fill="#dbeafe" font-family="Inter,Arial" transform="rotate(180 75 50)">${esc(g.role)}</text><text x="75" y="150" text-anchor="middle" font-size="${g.name.length > 18 ? 8 : 11}" font-weight="700" fill="#1e3a8a" font-family="Inter,Arial">${esc(g.name.toUpperCase())}</text><text x="75" y="165" text-anchor="middle" font-size="6" fill="#475569" font-family="Inter,Arial">${esc(g.role)}</text></svg>`).join('') || '<p class="text-sm text-slate-400 col-span-2">Isi daftar tamu di sebelah kiri.</p>'}</div>${list.length > 4 ? `<p class="text-xs text-slate-400 mt-2">+ ${list.length - 4} nametag lainnya ikut tercetak.</p>` : ''}</div></div>`;
+      }
+      return tabs + `<div class="grid lg:grid-cols-2 gap-4"><div class="bg-white rounded-xl shadow-sm p-5 space-y-3"><p class="font-semibold text-slate-700">Data nametag</p>
+        ${field('Nama lengkap', `<input id="ntName" value="${esc(me.full_name)}" class="${inputCls}">`)}${field('Nama panggilan <span class="text-xs text-slate-400">(opsional, tampil setelah " / ")</span>', `<input id="ntNick" value="${esc(ntUi.nick)}" class="${inputCls}">`)}
+        ${field('Jabatan', `<input id="ntRole" value="${esc(me.position || '')}" class="${inputCls}">`)}${field('Departemen', `<input id="ntDept" value="${esc(me.department || '')}" class="${inputCls}">`)}
+        <div class="flex gap-2 pt-1"><button id="ntPrint" class="${btnPrimary}">${icon('file-text')} Cetak</button><button id="ntPdf" class="${btnGhost}">${icon('download')} Simpan PDF</button></div></div>
+        <div class="bg-white rounded-xl shadow-sm p-5"><p class="font-semibold text-slate-700 mb-2">Pratinjau</p><div id="ntPrev">${ntCard(me.full_name, ntUi.nick, me.position || '', me.department || '')}</div><p class="text-xs text-slate-400 mt-3">Logo nametag diatur admin. Tanpa logo, nametag dicetak tanpa logo.</p></div></div>`;
+    },
+    bind() {
+      $$('[data-nttab]').forEach((b) => (b.onclick = () => { ntUi.tab = b.dataset.nttab; render(); }));
+      $('#ntPrint').onclick = printOrNote; $('#ntPdf').onclick = () => toast(ARTIFACT ? 'Unduhan dinonaktifkan di mode artifact.' : 'Di aplikasi asli, PDF diunduh langsung. Di demo gunakan Cetak → Simpan sebagai PDF.', !ARTIFACT);
+      if ($('#ntGuests')) { $('#ntGuests').oninput = (e) => { ntUi.guests = e.target.value; const p = e.target.selectionStart; render(); const n = $('#ntGuests'); n.focus(); n.setSelectionRange(p, p); }; $('#ntPaper').onchange = (e) => { ntUi.paper = e.target.value; }; return; }
+      const upd = () => { $('#ntPrev').innerHTML = ntCard($('#ntName').value, $('#ntNick').value, $('#ntRole').value, $('#ntDept').value); ntUi.nick = $('#ntNick').value; };
+      ['#ntName', '#ntNick', '#ntRole', '#ntDept'].forEach((s) => ($(s).oninput = upd));
+    },
+  };
+  function ntParse() { return ntUi.guests.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 100).map((l) => { const p = l.split(/\s*;\s*|\t/); return { name: p[0], role: p.slice(1).join(', ') }; }); }
+  ADMIN_NAV.splice(ADMIN_NAV.findIndex((n) => n[0] === 'signature') + 1, 0, ['nametag', 'tag', 'Nametag']);
+  USER_NAV.splice(USER_NAV.findIndex((n) => n[0] === 'signature') + 1, 0, ['nametag', 'tag', 'Nametag']);
+
+  // ---------- Standar Spesifikasi PC & Laptop (admin) ----------
+  const SPEC_STD = [
+    { name: 'Admin & Staff', scope: 'Departemen: IT, Finance, HRD, Purchasing, Gudang, Quality Control', cpu: 3, gen: 10, ram: 8, ssd: true, vga: false },
+    { name: 'Multimedia', scope: 'Departemen: Marketing', cpu: 7, gen: 10, ram: 16, ssd: true, vga: false },
+    { name: 'Manager', scope: 'Jabatan mengandung: Manager', cpu: 5, gen: 10, ram: 8, ssd: true, vga: false },
+    { name: 'Umum', scope: 'Semua yang tidak cocok dengan standar lain (wajib ada 1)', cpu: 3, gen: 10, ram: 8, ssd: true, vga: false },
+  ];
+  function specParse(a) {
+    const p = a.processor || ''; let tier = 0, gen = 0;
+    let m = p.match(/i([3579])[- ]?(\d{4,5})/i);
+    if (m) { tier = +m[1]; gen = m[2].length === 5 ? +m[2].slice(0, 2) : +m[2].slice(0, m[2].length === 4 ? (+m[2].slice(0, 2) >= 10 ? 2 : 1) : 2); }
+    m = p.match(/ryzen\s*([3579])\s*(\d)(\d{3})/i);
+    if (m) { tier = +m[1]; gen = { 3: 10, 4: 10, 5: 11, 7: 13 }[+m[2]] || 10; }
+    const ram = +((a.ram || '').match(/(\d+)\s*GB/i) || [0, 0])[1];
+    return { tier, gen, ram, ssd: /ssd|nvme|m\.2/i.test(a.storage || '') };
+  }
+  function specFor(a) {
+    const ow = db.assetOwners.find((o) => o.asset_id === a.id); const u = (ow && userById(ow.user_id)) || {};
+    if (/manager/i.test(u.position || '')) return SPEC_STD[2];
+    if (/marketing/i.test(a.department || u.department || '')) return SPEC_STD[1];
+    return a.department ? SPEC_STD[0] : SPEC_STD[3];
+  }
+  PAGES.spec = {
+    render() {
+      const items = db.assets.filter((a) => ['Laptop', 'Desktop PC'].includes(a.category) && a.status !== 'Rusak').map((a) => {
+        const s = specParse(a), std = specFor(a), why = [];
+        if (s.tier < std.cpu) why.push(`Prosesor di bawah Core i${std.cpu}`); else if (s.gen < std.gen) why.push(`Generasi di bawah gen ${std.gen}`);
+        if (s.ram < std.ram) why.push(`RAM ${s.ram || '?'} GB < ${std.ram} GB`);
+        if (std.ssd && !s.ssd) why.push('Belum SSD');
+        return { a, std, why };
+      });
+      const bad = items.filter((x) => x.why.length), byDept = {};
+      items.forEach((x) => { const d = x.a.department || '(Stok / tanpa departemen)'; (byDept[d] = byDept[d] || { n: 0, bad: 0 }).n++; if (x.why.length) byDept[d].bad++; });
+      return `<div class="bg-white rounded-xl shadow-sm p-5 mb-4"><p class="font-semibold text-slate-700 mb-1">Standar spesifikasi minimal</p><p class="text-xs text-slate-500 mb-3">Urutan penentuan: standar yang dipilih manual di aset → departemen/jabatan yang cocok → standar Umum. Standar bisa ditambah, diubah, atau dihapus di aplikasi asli.</p>
+        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-slate-500 bg-slate-50 border-b"><th class="py-2 px-3">Standar</th><th class="py-2 px-3">Berlaku untuk</th><th class="py-2 px-3">Prosesor</th><th class="py-2 px-3">RAM</th><th class="py-2 px-3">SSD</th></tr></thead><tbody>${SPEC_STD.map((s) => `<tr class="border-b last:border-0"><td class="py-2 px-3 font-medium">${s.name}</td><td class="py-2 px-3 text-slate-500">${s.scope}</td><td class="py-2 px-3">Core i${s.cpu} gen ${s.gen}</td><td class="py-2 px-3">${s.ram} GB</td><td class="py-2 px-3">${s.ssd ? 'Wajib' : '-'}</td></tr>`).join('')}</tbody></table></div></div>
+        <div class="grid sm:grid-cols-3 gap-3 mb-4"><div class="bg-white rounded-xl shadow-sm p-4"><p class="text-xs text-slate-500">Diperiksa</p><p class="text-2xl font-bold">${items.length}</p></div><div class="bg-white rounded-xl shadow-sm p-4"><p class="text-xs text-slate-500">Sesuai standar</p><p class="text-2xl font-bold text-emerald-600">${items.length - bad.length}</p></div><div class="bg-white rounded-xl shadow-sm p-4"><p class="text-xs text-slate-500">Di bawah standar</p><p class="text-2xl font-bold text-red-600">${bad.length}</p></div></div>
+        <div class="grid lg:grid-cols-2 gap-4"><div class="bg-white rounded-xl shadow-sm p-5"><p class="font-semibold text-slate-700 mb-2">Per departemen</p><table class="w-full text-sm"><tbody>${Object.entries(byDept).sort().map(([d, v]) => `<tr class="border-b last:border-0"><td class="py-2">${esc(d)}</td><td class="py-2 text-right text-slate-500">${v.n} unit</td><td class="py-2 text-right ${v.bad ? 'text-red-600 font-medium' : 'text-emerald-600'}">${v.bad ? v.bad + ' di bawah standar' : 'Sesuai'}</td></tr>`).join('')}</tbody></table></div>
+        <div class="bg-white rounded-xl shadow-sm p-5"><div class="flex items-center justify-between mb-2"><p class="font-semibold text-slate-700">Perlu di-upgrade</p><button id="spExport" class="${btnGhost}">${icon('download')} Export</button></div><div class="max-h-80 overflow-y-auto"><table class="w-full text-sm"><tbody>${bad.map((x) => `<tr class="border-b last:border-0 align-top"><td class="py-2 pr-2"><b>${esc(x.a.asset_number)}</b><div class="text-xs text-slate-400">${esc(x.a.department || 'Stok')}</div></td><td class="py-2 text-xs text-red-600">${x.why.join('<br>')}</td></tr>`).join('') || '<tr><td class="py-6 text-center text-slate-400">Semua unit sesuai standar.</td></tr>'}</tbody></table></div></div></div>`;
+    },
+    bind() {
+      $('#spExport').onclick = () => { const rows = [['No. Aset', 'Departemen', 'Prosesor', 'RAM', 'Storage']]; db.assets.filter((a) => ['Laptop', 'Desktop PC'].includes(a.category)).forEach((a) => { const s = specParse(a), std = specFor(a); if (s.tier < std.cpu || s.gen < std.gen || s.ram < std.ram || (std.ssd && !s.ssd)) rows.push([a.asset_number, a.department, a.processor, a.ram, a.storage]); }); downloadCsv('perlu_upgrade_spesifikasi.csv', rows); };
+    },
+  };
+  ADMIN_NAV.splice(ADMIN_NAV.findIndex((n) => n[0] === 'audit') + 1, 0, ['spec', 'gauge', 'Standar Spesifikasi']);
+
+  // ---------- Map CCTV (tab baru di menu CCTV, admin) ----------
+  function mapSeed() {
+    // Denah contoh (SVG buatan sendiri). Titik: kamera dari data CCTV demo, 1 switch PoE, 2 CCTV baru, 1 titik rencana.
+    const cams = C().cams, pts = [];
+    const pos = [[70, 70], [150, 70], [230, 70], [310, 70], [390, 70], [470, 70], [70, 150], [150, 150], [230, 150], [310, 150], [390, 150], [470, 150], [70, 230], [150, 230], [230, 230], [310, 230], [390, 230], [470, 230], [600, 70], [680, 70], [760, 70], [600, 150], [680, 150], [760, 150], [600, 230], [680, 230], [760, 230], [840, 150]];
+    cams.forEach((c, i) => { const p = pos[i % pos.length]; pts.push({ id: i + 1, kind: 'cam', cam_id: c.id, x: p[0] + (i % 3) * 6, y: p[1], dir: (i * 47) % 360, fov: 90, fresh_days: (i === 26 || i === 27) ? 2 : 90 }); });
+    pts.push({ id: 100, kind: 'poe', name: 'Switch PoE Lt.1', x: 300, y: 300 });
+    pts.push({ id: 101, kind: 'plan', name: 'R1 Rencana: area parkir', note: 'Tambah 1 kamera bullet', x: 880, y: 250, dir: 200, fov: 100 });
+    return { bg: '', nvrColor: { 1: '#2563eb', 2: '#ea580c' }, freshDays: 7, plan: true, points: pts };
+  }
+  if (!db.camMap) { db.camMap = mapSeed(); save(); }
+  CCTV_TABS.splice(3, 0, ['map', 'Map CCTV']);
+  const mapUi = { edit: false, sel: 0, size: 65, showPlan: true, fov: true, drag: null };
+  const mapColor = (p) => { const cam = C().cams.find((c) => c.id === p.cam_id) || {}; return p.fresh_days < db.camMap.freshDays ? '#dc2626' : (db.camMap.nvrColor[cam.nvr_id] || '#64748b'); };
+  function cctvMap() {
+    const M = db.camMap, cams = C().cams, pts = M.points.filter((p) => p.kind !== 'plan' || mapUi.showPlan), r = 9 * mapUi.size / 65;
+    const cnt = {}; M.points.filter((p) => p.kind === 'cam').forEach((p) => { const k = p.fresh_days < M.freshDays ? 'baru' : (cams.find((c) => c.id === p.cam_id) || {}).nvr_id; cnt[k] = (cnt[k] || 0) + 1; });
+    const total = M.points.filter((p) => p.kind === 'cam').length;
+    const cone = (p, col, dashed) => { const L = 55, a1 = (p.dir - p.fov / 2 - 90) * Math.PI / 180, a2 = (p.dir + p.fov / 2 - 90) * Math.PI / 180; return p.fov >= 360 ? `<circle cx="${p.x}" cy="${p.y}" r="${L}" fill="${col}" fill-opacity=".12"/>` : `<path d="M${p.x} ${p.y} L${p.x + L * Math.cos(a1)} ${p.y + L * Math.sin(a1)} A${L} ${L} 0 ${p.fov > 180 ? 1 : 0} 1 ${p.x + L * Math.cos(a2)} ${p.y + L * Math.sin(a2)} Z" fill="${col}" fill-opacity=".14" ${dashed ? `stroke="${col}" stroke-dasharray="4 3"` : ''}/>`; };
+    const svg = `<svg id="mapSvg" viewBox="0 0 940 340" class="w-full bg-white rounded-lg border select-none touch-none">
+      ${M.bg ? `<image href="${M.bg}" x="0" y="0" width="940" height="340" preserveAspectRatio="xMidYMid meet" opacity=".9"/>` : `<g fill="none" stroke="#94a3b8" stroke-width="2"><rect x="30" y="30" width="480" height="240" fill="#f8fafc"/><rect x="560" y="30" width="340" height="240" fill="#f8fafc"/><path d="M30 110h480M30 190h480M270 30v240M560 110h340M560 190h340M730 30v240" stroke-width="1" stroke="#cbd5e1"/></g><g font-family="Inter,Arial" font-size="11" fill="#94a3b8"><text x="40" y="292">Gedung Kantor (layout contoh)</text><text x="570" y="292">Gudang &amp; Produksi (layout contoh)</text></g>`}
+      ${mapUi.fov ? pts.filter((p) => p.kind === 'cam').map((p) => cone(p, mapColor(p), false)).join('') : ''}
+      ${pts.filter((p) => p.kind === 'plan').map((p) => `${mapUi.fov ? cone(p, '#7c3aed', true) : ''}`).join('')}
+      ${pts.map((p) => {
+        const sel = mapUi.sel === p.id ? ' stroke="#0f172a" stroke-width="3"' : '';
+        if (p.kind === 'poe') return `<g data-mp="${p.id}" class="cursor-pointer"><rect x="${p.x - r}" y="${p.y - r}" width="${2 * r}" height="${2 * r}" rx="3" fill="#0f766e"${sel}/><text x="${p.x}" y="${p.y + 3}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700" font-family="Inter,Arial">PoE</text></g>`;
+        if (p.kind === 'plan') return `<g data-mp="${p.id}" class="cursor-pointer"><circle cx="${p.x}" cy="${p.y}" r="${r + 1}" fill="#ede9fe" stroke="#7c3aed" stroke-width="2" stroke-dasharray="4 3"/><text x="${p.x}" y="${p.y + 3}" text-anchor="middle" font-size="8" fill="#6d28d9" font-weight="700" font-family="Inter,Arial">R1</text></g>`;
+        return `<g data-mp="${p.id}" class="cursor-pointer"><title>${esc(((cams.find((c) => c.id === p.cam_id) || {}).name || '') + ' · ' + ((cams.find((c) => c.id === p.cam_id) || {}).ip || ''))}</title><circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${mapColor(p)}"${sel}/><text x="${p.x}" y="${p.y + 3}" text-anchor="middle" font-size="${r > 8 ? 8 : 7}" fill="#fff" font-weight="700" font-family="Inter,Arial">${p.id}</text></g>`;
+      }).join('')}</svg>`;
+    const sp = M.points.find((p) => p.id === mapUi.sel), spc = sp && sp.kind === 'cam' ? cams.find((c) => c.id === sp.cam_id) : null;
+    const leg = (col, label, n) => `<span class="inline-flex items-center gap-1.5 text-xs mr-3"><span class="inline-block w-3 h-3 rounded-full" style="background:${col}"></span>${label}${n != null ? ` <b>${n}</b>` : ''}</span>`;
+    return `<div class="bg-white rounded-xl shadow-sm p-3 mb-3 flex flex-wrap items-center gap-2">
+      <select class="${inputCls} !w-auto" disabled><option>Outdoor &amp; Lantai 1 (peta contoh)</option></select>
+      <button id="mapEdit" class="${mapUi.edit ? btnPrimary : btnGhost}">${icon('pencil')} ${mapUi.edit ? 'Selesai edit' : 'Edit posisi'}</button>
+      <label class="${btnGhost} cursor-pointer">${icon('upload')} Upload layout<input id="mapBg" type="file" accept="image/*" class="hidden"></label>
+      <label class="text-xs text-slate-600 flex items-center gap-1.5">Titik <input id="mapSize" type="range" min="30" max="140" value="${mapUi.size}" class="w-24"></label>
+      <label class="text-xs text-slate-600"><input type="checkbox" id="mapFov" ${mapUi.fov ? 'checked' : ''}> Area pandang</label>
+      <label class="text-xs text-slate-600"><input type="checkbox" id="mapPlan" ${mapUi.showPlan ? 'checked' : ''}> Rencana</label>
+      <span class="flex-1"></span>
+      <select id="mapPaper" class="${inputCls} !w-auto"><option>A4</option><option>A3</option></select>
+      <button id="mapPrint" class="${btnGhost}">${icon('file-text')} Cetak / PDF</button>
+    </div>
+    <div class="grid lg:grid-cols-4 gap-3"><div class="lg:col-span-3">${svg}
+      <div class="mt-2 bg-white rounded-xl shadow-sm p-3"><p class="text-xs font-semibold text-slate-600 mb-1">Keterangan (otomatis dari titik di peta)</p>${C().nvrs.map((n) => leg(M.nvrColor[n.id] || '#64748b', n.name, cnt[n.id] || 0)).join('')}${leg('#dc2626', `CCTV baru (&lt; ${M.freshDays} hari)`, cnt.baru || 0)}${leg('#0f766e', 'Switch PoE', M.points.filter((p) => p.kind === 'poe').length)}${leg('#7c3aed', 'Rencana pemasangan', M.points.filter((p) => p.kind === 'plan').length)}<span class="text-xs text-slate-500 ml-1">Total CCTV: <b>${total}</b></span></div></div>
+      <div class="bg-white rounded-xl shadow-sm p-4 text-sm" id="mapPanel">${sp ? (spc ? `<p class="font-semibold text-slate-700">${esc(spc.name)}</p><p class="text-xs text-slate-500 mb-2">${esc(spc.location)} · ${esc(spc.type)}</p><dl class="space-y-1 text-xs"><div class="flex justify-between"><dt class="text-slate-500">IP</dt><dd class="font-mono">${esc(spc.ip)}</dd></div><div class="flex justify-between"><dt class="text-slate-500">NVR / Channel</dt><dd>${esc(nvrById(spc.nvr_id).name)} · ${spc.channel}</dd></div><div class="flex justify-between"><dt class="text-slate-500">Switch / Port</dt><dd>Switch PoE Lt.1 · eth${(sp.id % 24) + 1}</dd></div><div class="flex justify-between"><dt class="text-slate-500">Status</dt><dd class="${camOnline(spc) ? 'text-emerald-600' : 'text-red-600'}">${camOnline(spc) ? 'Online' : 'Mati'}</dd></div></dl>` : `<p class="font-semibold text-slate-700">${esc(sp.name || 'Titik')}</p><p class="text-xs text-slate-500">${esc(sp.note || (sp.kind === 'plan' ? 'Titik rencana: hanya penanda, tidak dihitung sebagai CCTV.' : 'Switch PoE'))}</p>`)
+        + (mapUi.edit && sp.dir != null ? `<label class="block mt-3 text-xs text-slate-600">Arah <input id="mapDir" type="range" min="0" max="359" value="${sp.dir}" class="w-full"></label><label class="block mt-1 text-xs text-slate-600">Sudut pandang: <b id="mapFovVal">${sp.fov}°</b> <input id="mapFovR" type="range" min="20" max="360" value="${sp.fov}" class="w-full"></label>` : '')
+        : `<p class="text-slate-500 text-sm">Arahkan kursor ke titik untuk melihat nama dan IP, klik untuk detail. ${mapUi.edit ? '<b>Mode edit:</b> seret titik untuk memindahkan.' : 'Klik <b>Edit posisi</b> untuk menggeser titik, mengatur arah dan sudut pandang (sampai 360°), atau menambah titik rencana.'}</p>
+        <p class="text-xs text-slate-400 mt-3">Kamera tersambung ke switch PoE + port eth yang tersimpan di topologi menu Jaringan. Cetak/PDF A4/A3 memakai kop surat dan halaman daftar CCTV per NVR.</p>`}</div></div>`;
+  }
+  const _cctvRenderOrig = PAGES.cctv.render;
+  PAGES.cctv.render = function () { if (isAdmin() && cctvUi.tab === 'map') return cctvTabs() + cctvMap(); return _cctvRenderOrig.call(this); };
+  function mapBind() {
+    const M = db.camMap, svg = $('#mapSvg'); if (!svg) return;
+    $('#mapEdit').onclick = () => { mapUi.edit = !mapUi.edit; mapUi.sel = 0; render(); };
+    $('#mapBg').onchange = (e) => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { M.bg = rd.result; render(); toast('Layout dipasang (hanya di memori demo, tidak disimpan).'); }; rd.readAsDataURL(f); };
+    $('#mapSize').oninput = (e) => { mapUi.size = +e.target.value; render(); };
+    $('#mapFov').onchange = (e) => { mapUi.fov = e.target.checked; render(); };
+    $('#mapPlan').onchange = (e) => { mapUi.showPlan = e.target.checked; render(); };
+    $('#mapPrint').onclick = printOrNote;
+    const toSvg = (ev) => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); };
+    $$('[data-mp]', svg).forEach((g) => {
+      const p = M.points.find((x) => x.id === +g.dataset.mp);
+      g.onclick = () => { if (mapUi.drag === 'moved') { mapUi.drag = null; return; } mapUi.sel = p.id; render(); };
+      if (mapUi.edit) g.onpointerdown = (ev) => {
+        ev.preventDefault(); mapUi.drag = 'down'; const ox = p.x, oy = p.y;
+        const move = (e2) => { const q = toSvg(e2); p.x = Math.max(10, Math.min(930, Math.round(q.x))); p.y = Math.max(10, Math.min(330, Math.round(q.y))); mapUi.drag = 'moved'; g.setAttribute('transform', `translate(${p.x - ox} ${p.y - oy})`); };
+        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (mapUi.drag === 'moved') { save(); mapUi.sel = p.id; render(); setTimeout(() => { mapUi.drag = null; }, 0); } else mapUi.drag = null; };
+        window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+      };
+    });
+    if ($('#mapDir')) { const sp = M.points.find((p) => p.id === mapUi.sel); $('#mapDir').oninput = (e) => { sp.dir = +e.target.value; save(); render(); }; $('#mapFovR').oninput = (e) => { sp.fov = +e.target.value; $('#mapFovVal').textContent = sp.fov + '°'; save(); const keep = mapUi.sel; render(); mapUi.sel = keep; }; }
+  }
+  const _cctvBindOrig2 = PAGES.cctv.bind;
+  PAGES.cctv.bind = function () { _cctvBindOrig2.call(this); if (cctvUi.tab === 'map') mapBind(); };
+
+  // ---------- Stok: ubah lokasi aset stok ----------
+  const _stockRender = PAGES.stock.render, _stockBind = PAGES.stock.bind;
+  PAGES.stock.render = function () {
+    let html = _stockRender.call(this);
+    if (isAdmin() && stockUi.tab === 'devices') {
+      html = html.replace(/(<button data-handover="(\d+)")/g, (m, all, id) => `<button data-assetloc="${id}" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap mr-1.5">${icon('pencil', 'w-3.5 h-3.5')} Ubah Lokasi</button>${all}`);
+    }
+    return html;
+  };
+  PAGES.stock.bind = function () {
+    _stockBind.call(this);
+    $$('[data-assetloc]').forEach((b) => (b.onclick = () => {
+      const a = assetById(+b.dataset.assetloc);
+      openModal('Ubah Lokasi Aset Stok', `<form id="locForm" class="space-y-3"><div class="rounded-lg bg-slate-50 p-3 text-sm"><p class="font-medium text-slate-700">${esc(a.asset_number)}</p><p class="text-slate-500">${esc(a.device_name || a.category)}</p></div>
+        ${field('Lokasi / tempat penyimpanan', `<input name="location" value="${esc(a.location || '')}" required class="${inputCls}">`)}<p class="text-xs text-slate-500">Hanya lokasi yang berubah; status tetap Stok.</p>
+        <div class="flex justify-end gap-2 pt-2 border-t"><button type="button" data-close class="${btnGhost}">Batal</button><button class="${btnPrimary}">${icon('check')} Simpan</button></div></form>`, { onMount: (w) => { $('#locForm', w).onsubmit = (e) => { e.preventDefault(); a.location = formData(e.target).location.trim(); save(); closeModal(); render(); toast('Lokasi aset stok disimpan.'); }; } });
+    }));
+  };
+
+  // ------------------------------------------------------------------
   render();
 })();

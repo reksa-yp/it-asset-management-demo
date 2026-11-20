@@ -61,6 +61,11 @@ memudahkan berpindah peran — misalnya buat tiket sebagai User, lalu proses tik
 - 🆕 **Jaringan** — cek koneksi semua aset ber-IP sekali klik (ping + cek port bila ping diblokir), deteksi switch diduga mati,
   **topologi otomatis** dari data "Terhubung ke" dengan semua IP perangkat, **kotak per lokasi**, **warna kabel per switch/router**,
   mode **Geser bebas** seperti Visio (posisi tersimpan), scan subnet untuk menemukan perangkat yang belum terdaftar, serta cetak/PDF berkop.
+- 🆕 **Pengajuan Khusus** — user dan admin mengajukan perangkat baru atau penggantian (foto wajib untuk penggantian), status Menunggu/Disetujui/Ditolak/Selesai, catatan admin, cetak, aksi massal, pop-up dan notifikasi untuk admin.
+- 🆕 **Map CCTV** — denah CCTV interaktif (tab di menu CCTV): titik kamera dan switch PoE, arah dan sudut pandang sampai 360°, warna per NVR, penanda CCTV baru, titik rencana, impor dari PDF, cetak/PDF A4/A3 dengan daftar kamera per NVR.
+- 🆕 **Nametag Tamu** — cetak banyak nametag meja tamu sekaligus (15 × 19,99 cm, F4/Legal), tempel dari Excel.
+- 🆕 **Stok** — ubah lokasi aset stok dan Berita Acara untuk beberapa transaksi sekaligus.
+- 🆕 **Terjemahan otomatis English** — teks bebas ikut diterjemahkan saat bahasa aplikasi English.
 - 🆕 **Perangkat Jaringan & Printer** — form dan import Excel khusus switch/hub/router/AP: banyak IP per router, port `eth`/`sfp`,
   port uplink dua sisi, dan koneksi tambahan (mis. NVR dengan 2 LAN). Printer: koneksi USB/LAN dan milik perusahaan/sewa.
 - 🆕 **Akses tambahan user** — Tablet (QME) dan **Checklist CCTV** (mis. Security), dicentang di Management User.
